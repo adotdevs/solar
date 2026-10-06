@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import {
     ResponsiveContainer,
@@ -8,7 +8,8 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip as RechartsTooltip,
-    Legend
+    Legend,
+    ReferenceDot
 } from "recharts";
 import {
     Box,
@@ -21,19 +22,28 @@ import {
     Fade,
     IconButton,
     Button,
-    Typography
+    Typography,
+    Chip,
+    useTheme,
+    useMediaQuery
 } from "@mui/material";
 import {
     SolarPower as SolarIcon,
     CalendarToday,
     Refresh,
     TrendingUp,
-    BatteryChargingFull
+    ElectricBolt,
+    Close,
+    TouchApp,
+    Speed
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { API_ENDPOINTS } from "../constants.js";
 
 const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
     const today = new Date().toISOString().split("T")[0];
     const firstDay = new Date();
     firstDay.setDate(1);
@@ -55,8 +65,14 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
     const [progress, setProgress] = useState(0);
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchProgress, setRefetchProgress] = useState(0);
+    const [scrubbedPoint, setScrubbedPoint] = useState(null);
     
     const currentTheme = themeColors[themeColor];
+
+    const maxProductionDay = useMemo(() => {
+        if (!data || data.length === 0) return null;
+        return data.reduce((max, curr) => (curr.production > (max?.production || 0) ? curr : max), data[0]);
+    }, [data]);
     
     const fetchData = async () => {
         try {
@@ -318,6 +334,50 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
         }
     };
 
+    const CustomTooltip = ({ active, payload }) => {
+        useEffect(() => {
+            if (active && payload && payload.length) {
+                setScrubbedPoint(payload[0].payload);
+            }
+        }, [active, payload]);
+
+        // Hide floating popup box on mobile to prevent obscuring graph
+        if (isMobile) return null;
+
+        if (active && payload && payload.length) {
+            const currentData = payload[0].payload;
+            return (
+                <Box sx={{
+                    background: darkMode ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(12px)",
+                    borderRadius: 3,
+                    p: 2,
+                    boxShadow: darkMode ? "0 10px 30px rgba(0,0,0,0.5)" : "0 10px 30px rgba(0,0,0,0.1)",
+                    border: `1px solid ${darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)"}`,
+                    minWidth: 200,
+                    pointerEvents: 'none'
+                }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: darkMode ? "#f8fafc" : "#0f172a" }}>
+                        📅 {currentData.date}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.8 }}>
+                        <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600 }}>☀️ Production:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#10b981' }}>{currentData.production} kWh</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.8 }}>
+                        <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 600 }}>⚡ Home Load:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#6366f1' }}>{currentData.load} kWh</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.8, borderTop: `1px solid ${darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)"}` }}>
+                        <Typography variant="caption" sx={{ color: '#0ea5e9', fontWeight: 600 }}>🔄 Fed to Grid:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#0ea5e9' }}>{currentData.feeded} kWh</Typography>
+                    </Box>
+                </Box>
+            );
+        }
+        return null;
+    };
+
     return (
         <Box>
             <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
@@ -332,8 +392,8 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                 justifyContent: 'space-between',
                                 borderRadius: 4,
                                 background: darkMode 
-                                    ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
-                                    : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
                                 border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
                                 borderTop: '3.5px solid #10b981',
                                 boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
@@ -399,8 +459,8 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                 justifyContent: 'space-between',
                                 borderRadius: 4,
                                 background: darkMode 
-                                    ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
-                                    : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
                                 border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
                                 borderTop: '3.5px solid #6366f1',
                                 boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
@@ -466,8 +526,8 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                 justifyContent: 'space-between',
                                 borderRadius: 4,
                                 background: darkMode 
-                                    ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
-                                    : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
                                 border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
                                 borderTop: '3.5px solid #0ea5e9',
                                 boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
@@ -500,7 +560,7 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <BatteryChargingFull sx={{ fontSize: 22 }} />
+                                        <ElectricBolt sx={{ fontSize: 22 }} />
                                     </Box>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
@@ -620,6 +680,7 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                             Confirm
                         </Button>
                     </Box>
+
                     {missingDates.length > 0 && (
                         <Box sx={{ mb: 2, p: 2, background: 'rgba(244, 67, 54, 0.1)', borderRadius: 2 }}>
                             <Typography variant="body2" color="error" sx={{ mb: 1 }}>
@@ -636,6 +697,7 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                     borderRadius: 2,
                                     textTransform: 'none',
                                     fontWeight: 600,
+                                    fontSize: '0.875rem'
                                 }}
                             >
                                 {isRefetching ? `Refetching... ${refetchProgress.toFixed(0)}%` : `Refetch Missing Days (${missingDates.length})`}
@@ -657,11 +719,168 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                             )}
                         </Box>
                     )}
+
                     {isError && (
                         <Typography variant="body2" color="error" sx={{ mb: 2, p: 2, background: 'rgba(244, 67, 54, 0.1)', borderRadius: 2 }}>
                             ⚠️ Error: {isError}
                         </Typography>
                     )}
+
+                    {/* Live Daily Telemetry Inspection HUD Bar */}
+                    <Box 
+                        sx={{ 
+                            mb: 2.5,
+                            p: { xs: 1.5, sm: 2 },
+                            borderRadius: 3,
+                            background: scrubbedPoint 
+                                ? (darkMode ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)')
+                                : (darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(241, 245, 249, 0.8)'),
+                            border: scrubbedPoint
+                                ? '1.5px solid rgba(16, 185, 129, 0.45)'
+                                : `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.8)'}`,
+                            transition: 'all 0.25s ease',
+                            boxShadow: scrubbedPoint ? '0 4px 20px rgba(16, 185, 129, 0.12)' : 'none'
+                        }}
+                    >
+                        {scrubbedPoint ? (
+                            <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{ 
+                                            width: 8, 
+                                            height: 8, 
+                                            borderRadius: '50%', 
+                                            bgcolor: '#10b981',
+                                            boxShadow: '0 0 10px #10b981'
+                                        }} />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: 0.5, fontSize: { xs: '0.82rem', sm: '0.95rem' } }}>
+                                            INSPECTING DAY: <span style={{ color: '#10b981', fontWeight: 800 }}>{scrubbedPoint.date}</span>
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Chip 
+                                            size="small" 
+                                            label={
+                                                scrubbedPoint.production >= scrubbedPoint.load 
+                                                    ? `Surplus: +${(scrubbedPoint.production - scrubbedPoint.load).toFixed(2)} kWh`
+                                                    : `Deficit: -${(scrubbedPoint.load - scrubbedPoint.production).toFixed(2)} kWh`
+                                            }
+                                            sx={{ 
+                                                fontWeight: 700,
+                                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                                bgcolor: scrubbedPoint.production >= scrubbedPoint.load ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                color: scrubbedPoint.production >= scrubbedPoint.load ? '#10b981' : '#f59e0b',
+                                                border: `1px solid ${scrubbedPoint.production >= scrubbedPoint.load ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`
+                                            }}
+                                        />
+                                        <IconButton 
+                                            size="small" 
+                                            onClick={() => setScrubbedPoint(null)}
+                                            sx={{ 
+                                                p: 0.5, 
+                                                bgcolor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                                                '&:hover': { bgcolor: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }
+                                            }}
+                                            title="Clear inspection point"
+                                        >
+                                            <Close sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                    </Box>
+                                </Box>
+                                
+                                <Grid container spacing={1.5}>
+                                    <Grid item xs={6} sm={4}>
+                                        <Box sx={{ 
+                                            p: { xs: 1, sm: 1.5 }, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                                            border: '1px solid rgba(16, 185, 129, 0.25)'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                ☀️ Solar Production
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                                                {scrubbedPoint.production} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>kWh</span>
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                        <Box sx={{ 
+                                            p: { xs: 1, sm: 1.5 }, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: darkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.08)',
+                                            border: '1px solid rgba(99, 102, 241, 0.25)'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                ⚡ Home Consumption
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#6366f1', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                                                {scrubbedPoint.load} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>kWh</span>
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4}>
+                                        <Box sx={{ 
+                                            p: { xs: 1, sm: 1.5 }, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: darkMode ? 'rgba(14, 165, 233, 0.1)' : 'rgba(14, 165, 233, 0.08)',
+                                            border: '1px solid rgba(14, 165, 233, 0.25)'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#0ea5e9', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                🔄 Surplus Fed to Grid
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#0ea5e9', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                                                {scrubbedPoint.feeded} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>kWh</span>
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, color: darkMode ? '#cbd5e1' : '#475569', display: 'flex', alignItems: 'center', gap: 0.8, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                                        <Speed sx={{ fontSize: 18, color: '#10b981' }} />
+                                        Period Highlights:
+                                    </Typography>
+                                    {maxProductionDay && maxProductionDay.production > 0 && (
+                                        <Chip 
+                                            size="small"
+                                            icon={<SolarIcon sx={{ fontSize: '14px !important', color: '#f59e0b !important' }} />}
+                                            label={`Peak: ${maxProductionDay.date} (${maxProductionDay.production} kWh)`}
+                                            sx={{ 
+                                                bgcolor: darkMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                                                color: darkMode ? '#fbbf24' : '#d97706',
+                                                fontWeight: 700,
+                                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                fontSize: '0.74rem'
+                                            }}
+                                        />
+                                    )}
+                                    {data.length > 0 && (
+                                        <Chip 
+                                            size="small"
+                                            label={`Days: ${data.length}`}
+                                            sx={{ 
+                                                bgcolor: darkMode ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+                                                color: '#10b981',
+                                                fontWeight: 700,
+                                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                                fontSize: '0.74rem'
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                    <TouchApp sx={{ fontSize: 16, color: darkMode ? '#94a3b8' : '#64748b' }} />
+                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500, fontStyle: 'italic' }}>
+                                        {isMobile ? 'Drag finger across graph to inspect any day' : 'Hover or click graph to inspect daily details'}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        )}
+                    </Box>
+
                     {isLoading ? (
                         <Box sx={{ width: '100%', mb: 2 }}>
                             <LinearProgress
@@ -682,9 +901,26 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                             </Typography>
                         </Box>
                     ) : (
-                        <ResponsiveContainer width="100%" height={450}>
-                            <AreaChart data={data}
-                                margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height={isMobile ? 320 : 450} minHeight={280}>
+                            <AreaChart 
+                                data={data}
+                                margin={{ top: 20, right: 15, left: -15, bottom: 10 }}
+                                onMouseMove={(state) => {
+                                    if (state && state.activePayload && state.activePayload.length) {
+                                        setScrubbedPoint(state.activePayload[0].payload);
+                                    }
+                                }}
+                                onTouchMove={(state) => {
+                                    if (state && state.activePayload && state.activePayload.length) {
+                                        setScrubbedPoint(state.activePayload[0].payload);
+                                    }
+                                }}
+                                onClick={(state) => {
+                                    if (state && state.activePayload && state.activePayload.length) {
+                                        setScrubbedPoint(state.activePayload[0].payload);
+                                    }
+                                }}
+                            >
                                 <defs>
                                     <linearGradient id="prodColor" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.85} />
@@ -698,16 +934,16 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                 <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.06)"} />
                                 <XAxis 
                                     dataKey="date" 
-                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: 12 }}
+                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: isMobile ? 10 : 12 }}
                                     stroke={darkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)"}
                                 />
                                 <YAxis 
-                                    width={40} 
                                     tickFormatter={(value) => `${value}k`}
-                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: 12 }}
+                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: isMobile ? 10 : 12 }}
                                     stroke={darkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)"}
                                 />
                                 <RechartsTooltip 
+                                    content={<CustomTooltip />}
                                     cursor={{ stroke: darkMode ? '#818cf8' : '#6366f1', strokeWidth: 1.5, strokeDasharray: '4 4' }}
                                 />
                                 <Legend 
@@ -735,6 +971,18 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                     fill="url(#loadColor)"
                                     name="Load (kWh)"
                                 />
+
+                                {maxProductionDay && maxProductionDay.production > 0 && (
+                                    <ReferenceDot
+                                        x={maxProductionDay.date}
+                                        y={maxProductionDay.production}
+                                        r={isMobile ? 5 : 6}
+                                        fill="#f59e0b"
+                                        stroke="#ffffff"
+                                        strokeWidth={2.5}
+                                        ifOverflow="visible"
+                                    />
+                                )}
                             </AreaChart>
                         </ResponsiveContainer>
                     )}

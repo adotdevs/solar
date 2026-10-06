@@ -20,7 +20,6 @@ import {
     Paper,
     InputAdornment,
     TextField,
-    LinearProgress,
     Fade,
     Chip,
     Tooltip,
@@ -36,7 +35,6 @@ import {
     CalendarToday,
     Refresh,
     TrendingUp,
-    BatteryChargingFull,
     PowerOff,
     ChevronLeft,
     ChevronRight,
@@ -45,8 +43,6 @@ import {
     PlayArrow,
     Pause,
     Today as TodayIcon,
-    CheckCircle,
-    Warning,
     Close,
     TouchApp,
     Speed,
@@ -347,7 +343,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                         }} />
                         <Typography variant="caption" sx={{ color: modeColor, fontWeight: 700 }}>
                             {currentData.mode === "Line Mode" ? "⚡ Connected (Grid)" :
-                                currentData.mode === "Battery Mode" ? "🔋 Battery Mode" :
+                                currentData.mode === "Battery Mode" ? "⚡ Off-Grid Mode" :
                                     currentData.mode === "Standby Mode" ? "⏸️ System Off" : (currentData.mode || "Standby")}
                         </Typography>
                     </Box>
@@ -778,7 +774,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}>
-                                    <BatteryChargingFull sx={{ fontSize: 22 }} />
+                                    <ElectricBolt sx={{ fontSize: 22 }} />
                                 </Box>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
@@ -880,7 +876,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                 </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', mb: 1.5, fontWeight: 500 }}>
-                                Battery / Solar Runtime
+                                Grid Outage Duration
                             </Typography>
                             <Box sx={{ 
                                 pt: 1.2, 
@@ -1379,7 +1375,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                             size="small" 
                                             label={
                                                 scrubbedPoint.mode === "Line Mode" ? "⚡ Connected (Grid)" :
-                                                scrubbedPoint.mode === "Battery Mode" ? "🔋 Battery (Grid Cut)" :
+                                                scrubbedPoint.mode === "Battery Mode" ? "⚡ Off-Grid Outage" :
                                                 "⏸️ System Off"
                                             }
                                             sx={{ 

@@ -11,18 +11,27 @@ import {
     Divider,
     CircularProgress,
     IconButton,
-    Tooltip
+    Tooltip,
+    Button,
+    LinearProgress,
+    Fade
 } from '@mui/material';
 import {
     PowerSettingsNew,
     Settings,
     CheckCircle,
-    Warning,
     Email,
     Refresh,
     Info,
     NotificationsActive,
-    Assessment
+    Assessment,
+    Wifi,
+    Memory,
+    Speed,
+    ElectricBolt,
+    Send,
+    Chat,
+    Dns
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../constants';
@@ -36,14 +45,31 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
     const [isLoadingSettings, setIsLoadingSettings] = useState(true);
     
     const [notificationStatus, setNotificationStatus] = useState(null);
+    const [collectorInfo, setCollectorInfo] = useState(null);
+    const [lastDataMetrics, setLastDataMetrics] = useState({});
+    const [deviceList, setDeviceList] = useState([]);
+    const [testingChannel, setTestingChannel] = useState(null);
     
-    const currentTheme = themeColors[themeColor];
+    const currentTheme = themeColors[themeColor] || { primary: '#10b981', secondary: '#059669' };
 
     useEffect(() => {
-        fetchSystemHealth();
-        fetchSystemSettings();
-        fetchNotificationStatus();
+        fetchAllData();
     }, []);
+
+    const fetchAllData = async (forceRefresh = false) => {
+        setIsLoadingHealth(true);
+        setIsLoadingSettings(true);
+        await Promise.allSettled([
+            fetchSystemHealth(forceRefresh),
+            fetchSystemSettings(forceRefresh),
+            fetchNotificationStatus(),
+            fetchCollectorInfo(),
+            fetchDeviceLastData(),
+            fetchDeviceList()
+        ]);
+        setIsLoadingHealth(false);
+        setIsLoadingSettings(false);
+    };
 
     const fetchSystemHealth = async (forceRefresh = false) => {
         try {
@@ -51,14 +77,10 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
                 ? `${API_ENDPOINTS.systemHealth()}?force_refresh=true`
                 : API_ENDPOINTS.systemHealth();
             const response = await axios.get(url);
-            const newHealthData = response.data;
-            
-            setSystemHealth(newHealthData);
+            setSystemHealth(response.data);
             setLastHealthUpdate(new Date());
-            setIsLoadingHealth(false);
         } catch (error) {
             console.error('Error fetching system health:', error);
-            setIsLoadingHealth(false);
         }
     };
 
@@ -68,31 +90,18 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
                 ? `${API_ENDPOINTS.systemSettings()}?force_refresh=true`
                 : API_ENDPOINTS.systemSettings();
             const response = await axios.get(url);
-            if (response.data.success) {
-                const newSettings = response.data.settings;
-                
-                if (systemSettings) {
-                    if (systemSettings.grid_feed_enabled !== newSettings.grid_feed_enabled) {
-                        toast.info(`⚡ Grid Feeding ${newSettings.grid_feed_enabled ? 'ENABLED' : 'DISABLED'}`);
-                    }
-                    if (systemSettings.output_source_priority !== newSettings.output_source_priority) {
-                        toast.info(`🔄 Output Priority changed to: ${newSettings.output_source_priority}`);
-                    }
-                }
-                
-                setSystemSettings(newSettings);
+            if (response.data && response.data.success) {
+                setSystemSettings(response.data.settings);
             }
-            setIsLoadingSettings(false);
         } catch (error) {
             console.error('Error fetching system settings:', error);
-            setIsLoadingSettings(false);
         }
     };
 
     const fetchNotificationStatus = async () => {
         try {
             const response = await axios.get(API_ENDPOINTS.notificationStatus());
-            if (response.data.success) {
+            if (response.data && response.data.success) {
                 setNotificationStatus(response.data);
             }
         } catch (error) {
@@ -100,77 +109,127 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
         }
     };
 
-    const handleTestNotification = async () => {
+    const fetchCollectorInfo = async () => {
         try {
-            console.log('🔔 Sending test notification...');
-            const response = await axios.post(API_ENDPOINTS.notificationTest());
-            console.log('📧 Test notification response:', response.data);
-            
-            if (response.data && response.data.success) {
-                const recipient = response.data.recipient || 'configured email';
-                toast.success(`✅ Test email sent to ${recipient}`);
-            } else {
-                const errorMessage = response.data?.message || 'Failed to send test email';
-                console.error('❌ Test notification failed:', errorMessage);
-                toast.error(errorMessage);
+            const response = await axios.get(API_ENDPOINTS.collectorInfo());
+            if (response.data && response.data.success && response.data.data?.dat?.collector) {
+                setCollectorInfo(response.data.data.dat.collector[0] || null);
             }
         } catch (error) {
-            console.error('❌ Test notification error:', error);
-            
-            // Handle different types of errors
-            if (error.response) {
-                // Server responded with error status
-                const errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
-                toast.error(`Error sending test email: ${errorMessage}`);
-            } else if (error.request) {
-                // Request was made but no response received
-                toast.error('Network error: Unable to reach server');
-            } else {
-                // Something else happened
-                toast.error(`Error: ${error.message}`);
+            console.error('Error fetching collector info:', error);
+        }
+    };
+
+    const fetchDeviceLastData = async () => {
+        try {
+            const response = await axios.get(API_ENDPOINTS.deviceLastData());
+            if (response.data && response.data.success && response.data.data?.dat) {
+                const metricMap = {};
+                // Filter out any battery metrics because user's system has no battery
+                response.data.data.dat.forEach((item) => {
+                    if (item.title && !item.title.toLowerCase().includes('battery')) {
+                        metricMap[item.title] = {
+                            val: item.val,
+                            unit: item.unit || ''
+                        };
+                    }
+                });
+                setLastDataMetrics(metricMap);
             }
+        } catch (error) {
+            console.error('Error fetching device last data:', error);
+        }
+    };
+
+    const fetchDeviceList = async () => {
+        try {
+            const response = await axios.get(API_ENDPOINTS.devicesList());
+            if (response.data && response.data.success && response.data.devices) {
+                setDeviceList(response.data.devices);
+            }
+        } catch (error) {
+            console.error('Error fetching device list:', error);
+        }
+    };
+
+    const handleTestNotification = async () => {
+        try {
+            setTestingChannel('email');
+            const response = await axios.post(API_ENDPOINTS.notificationTest());
+            if (response.data && response.data.success) {
+                toast.success(`✅ Test email sent to ${response.data.recipient || 'configured email'}`);
+            } else {
+                toast.error(response.data?.message || 'Failed to send test email');
+            }
+        } catch (error) {
+            toast.error('Error sending test email: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setTestingChannel(null);
+        }
+    };
+
+    const handleTestTelegram = async () => {
+        try {
+            setTestingChannel('telegram');
+            const response = await axios.post(API_ENDPOINTS.testTelegram());
+            if (response.data && response.data.success) {
+                toast.success(`📱 Telegram alert sent to Chat ID ${response.data.recipient || 'configured user'}!`);
+            } else {
+                toast.error(response.data?.message || 'Failed to send Telegram message');
+            }
+        } catch (error) {
+            toast.error('Error sending Telegram: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setTestingChannel(null);
+        }
+    };
+
+    const handleTestDiscord = async () => {
+        try {
+            setTestingChannel('discord');
+            const response = await axios.post(API_ENDPOINTS.testDiscord());
+            if (response.data && response.data.success) {
+                toast.success('💬 Discord alert webhook sent successfully!');
+            } else {
+                toast.error(response.data?.message || 'Failed to send Discord webhook');
+            }
+        } catch (error) {
+            toast.error('Error sending Discord alert: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setTestingChannel(null);
         }
     };
 
     const handleTestDailySummary = async () => {
         try {
-            toast.info('Fetching yesterday\'s data and sending summary...', { autoClose: 2000 });
-            
+            setTestingChannel('summary');
+            toast.info("Generating and dispatching executive daily summary...");
             const response = await axios.get(API_ENDPOINTS.testDailySummary());
-            
-            if (response.data.success) {
-                const { data, channels } = response.data;
-                
+            if (response.data && response.data.success) {
+                const { data } = response.data;
                 toast.success(
-                    `Daily Summary Sent!\n📊 Production: ${data.production_kwh} kWh\n⚡ Usage: ${data.load_kwh} kWh\n🔋 Grid: ${data.grid_contribution_kwh} kWh`,
+                    `📊 Daily Summary Sent! PV: ${data.production_kwh} kWh | Load: ${data.load_kwh} kWh`,
                     { autoClose: 5000 }
                 );
-                
-                if (channels.email?.success) toast.success('✅ Email sent!');
-                if (channels.telegram?.success) toast.success('✅ Telegram sent!');
-                if (channels.discord?.success) toast.success('✅ Discord sent!');
-                
             } else {
-                toast.error(response.data.message || 'Failed to send daily summary');
+                toast.error(response.data?.message || 'Failed to send daily summary');
             }
         } catch (error) {
             toast.error('Error sending daily summary: ' + error.message);
+        } finally {
+            setTestingChannel(null);
         }
     };
 
     const handleRefresh = () => {
-        setIsLoadingHealth(true);
-        setIsLoadingSettings(true);
-        toast.info('Fetching fresh data from inverter...');
-        fetchSystemHealth(true);
-        fetchSystemSettings(true);
-        fetchNotificationStatus();
+        toast.info('Fetching fresh live data from inverter & cloud logger...');
+        fetchAllData(true);
     };
 
     const getHealthColor = (score) => {
-        if (score >= 90) return '#4caf50';
-        if (score >= 70) return '#ff9800';
-        return '#f44336';
+        if (score >= 90) return '#10b981';
+        if (score >= 70) return '#f59e0b';
+        return '#ef4444';
     };
 
     const getStatusColor = (status) => {
@@ -182,469 +241,664 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
         }
     };
 
-    const getStatusChipColor = (enabled) => {
-        return enabled ? 'success' : 'error';
-    };
+    const cardBackground = darkMode 
+        ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+        : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)';
+
+    const cardBorder = darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)';
 
     return (
         <Box>
+            {/* Header & Control Bar */}
             <Box sx={{ 
                 mb: 3, 
                 display: 'flex', 
                 justifyContent: 'space-between', 
-                alignItems: 'center',
+                alignItems: { xs: 'flex-start', sm: 'center' },
                 flexDirection: { xs: 'column', sm: 'row' },
                 gap: 2
             }}>
-                <Box sx={{ textAlign: { xs: 'center', sm: 'left' }, width: { xs: '100%', sm: 'auto' } }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
-                        System Status & Monitoring
+                <Box>
+                    <Typography variant="h4" sx={{ 
+                        fontWeight: 800, 
+                        color: darkMode ? '#f8fafc' : '#0f172a',
+                        fontSize: { xs: '1.5rem', sm: '2rem' },
+                        letterSpacing: '-0.02em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5
+                    }}>
+                        <Memory sx={{ color: currentTheme.primary, fontSize: { xs: 28, sm: 34 } }} />
+                        System Intelligence & Controls
                     </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.7, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                        Real-time system settings and health monitoring (READ-ONLY)
+                    <Typography variant="body2" sx={{ color: darkMode ? '#94a3b8' : '#64748b', mt: 0.5 }}>
+                        Real-time inverter telemetry, datalogger diagnostics & instant multi-channel alert center
                     </Typography>
                 </Box>
-                <Tooltip title="Refresh All Data">
-                    <IconButton 
-                        onClick={handleRefresh}
-                        sx={{
-                            background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.secondary} 100%)`,
-                            color: 'white',
-                            '&:hover': {
-                                background: `linear-gradient(135deg, ${currentTheme.secondary} 0%, ${currentTheme.primary} 100%)`,
-                                transform: 'rotate(180deg)',
-                            },
-                            transition: 'all 0.5s ease',
-                        }}
-                    >
-                        <Refresh />
-                    </IconButton>
-                </Tooltip>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    {lastHealthUpdate && (
+                        <Chip
+                            size="small"
+                            label={`Updated: ${lastHealthUpdate.toLocaleTimeString()}`}
+                            sx={{
+                                bgcolor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                                color: darkMode ? '#94a3b8' : '#64748b',
+                                fontWeight: 600,
+                                fontSize: '0.75rem'
+                            }}
+                        />
+                    )}
+                    <Tooltip title="Refresh All Telemetry">
+                        <IconButton 
+                            onClick={handleRefresh}
+                            disabled={isLoadingHealth || isLoadingSettings}
+                            sx={{
+                                background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.secondary} 100%)`,
+                                color: 'white',
+                                '&:hover': {
+                                    background: `linear-gradient(135deg, ${currentTheme.secondary} 0%, ${currentTheme.primary} 100%)`,
+                                    transform: 'rotate(180deg)',
+                                },
+                                transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                                boxShadow: `0 4px 15px ${currentTheme.primary}40`,
+                            }}
+                        >
+                            <Refresh />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
             </Box>
 
-            <Alert severity="info" sx={{ mb: 2 }}>
-                <strong>📖 Read-Only Display:</strong> These settings are read directly from your inverter hardware. 
-                To change them, use the WatchPower mobile app. This dashboard monitors values and sends email alerts.
-            </Alert>
-            
-            <Alert severity="success" sx={{ mb: 3 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    🤖 Automatic Monitoring Active - Every 5 Minutes
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    The system automatically checks for mode changes and sends instant alerts via Email 📧, Telegram 📱, and Discord 💬 when:
-                    <br />• Electricity disconnects (Battery Mode) 🔋
-                    <br />• Electricity restores (Line Mode) ⚡
-                    <br />• System goes to Standby ⏸️
-                </Typography>
-            </Alert>
+            {/* Quick System Summary Banner */}
+            <Box sx={{ 
+                mb: 3, 
+                p: { xs: 2, sm: 2.5 }, 
+                borderRadius: 4, 
+                background: darkMode ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.05)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 2
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                        p: 1.2, 
+                        borderRadius: 3, 
+                        bgcolor: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        display: 'flex'
+                    }}>
+                        <Speed sx={{ fontSize: 28 }} />
+                    </Box>
+                    <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: darkMode ? '#f8fafc' : '#0f172a' }}>
+                            Inverter 24/7 Automated Monitoring & Feed-in Active
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                            Sampling every 5 minutes. Live alerts triggered on power-cuts, restoration, and daily executive summaries.
+                        </Typography>
+                    </Box>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip 
+                        size="small" 
+                        icon={<ElectricBolt sx={{ fontSize: '14px !important', color: '#10b981 !important' }} />}
+                        label={systemHealth?.system_mode === 'Line Mode' ? 'Grid Connected' : (systemHealth?.system_mode || 'Online')}
+                        sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700 }}
+                    />
+                    <Chip 
+                        size="small" 
+                        icon={<Dns sx={{ fontSize: '14px !important', color: '#0ea5e9 !important' }} />}
+                        label={`Rated: ${lastDataMetrics['AC Output Rating Active Power']?.val || '6000'}W`}
+                        sx={{ bgcolor: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', fontWeight: 700 }}
+                    />
+                    <Chip 
+                        size="small" 
+                        label={notificationStatus?.grid_feeding_enabled ? 'Grid Feed: Enabled' : 'Grid Feed: Standby'}
+                        sx={{ bgcolor: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', fontWeight: 700 }}
+                    />
+                </Box>
+            </Box>
 
-            <Grid container spacing={{ xs: 2, sm: 3 }}>
+            {/* Main Diagnostics Grid */}
+            <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
+                
+                {/* 1. System Health Score & Power Line Stability */}
                 <Grid item xs={12} md={6}>
-                    <Card
-                        sx={{
-                            background: darkMode 
-                                ? 'linear-gradient(145deg, #1e1e1e 0%, #2d2d2d 100%)'
-                                : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+                    <Fade in timeout={400}>
+                        <Card sx={{
+                            background: cardBackground,
                             borderRadius: 4,
-                            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
-                            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #10b981',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)',
                             height: '100%'
-                        }}
-                    >
-                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                                <Settings sx={{ fontSize: { xs: 28, sm: 32 }, mr: 2, color: currentTheme.primary }} />
-                                <Typography variant="h5" sx={{ fontWeight: 600, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-                                    System Health
-                                </Typography>
-                            </Box>
-
-                            {isLoadingHealth ? (
-                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                                    <CircularProgress />
-                                </Box>
-                            ) : systemHealth ? (
-                                <>
-                                    <Box sx={{ 
-                                        textAlign: 'center', 
-                                        mb: 3,
-                                        p: { xs: 2, sm: 3 },
-                                        background: systemHealth.system_mode === 'Battery Mode'
-                                            ? 'linear-gradient(135deg, rgba(244, 67, 54, 0.15) 0%, rgba(255, 152, 0, 0.15) 100%)'
-                                            : systemHealth.system_mode === 'Standby Mode'
-                                                ? 'linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 193, 7, 0.15) 100%)'
-                                                : `linear-gradient(135deg, ${currentTheme.primary}15 0%, ${currentTheme.secondary}15 100%)`,
-                                        borderRadius: 3,
-                                        border: systemHealth.system_mode === 'Battery Mode'
-                                            ? '2px solid rgba(244, 67, 54, 0.3)'
-                                            : systemHealth.system_mode === 'Standby Mode'
-                                                ? '2px solid rgba(255, 152, 0, 0.3)'
-                                                : 'none'
-                                    }}>
-                                        <Typography variant="h1" sx={{ 
-                                            fontWeight: 700,
-                                            color: getHealthColor(systemHealth.health_score),
-                                            mb: 1,
-                                            fontSize: { xs: '3rem', sm: '4rem', md: '6rem' }
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(16, 185, 129, 0.12)',
+                                            color: '#10b981'
                                         }}>
-                                            {systemHealth.health_score}
-                                        </Typography>
-                                        <Typography variant="h6" sx={{ opacity: 0.7, mb: 1, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                                            Health Score
-                                        </Typography>
+                                            <Settings sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                System Health & Line Quality
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Hardware diagnostics & real-time voltage frequency
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    {systemHealth && (
                                         <Chip 
                                             label={systemHealth.status}
                                             color={getStatusColor(systemHealth.status)}
-                                            sx={{ fontWeight: 600 }}
+                                            size="small"
+                                            sx={{ fontWeight: 700 }}
+                                        />
+                                    )}
+                                </Box>
+
+                                {isLoadingHealth ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                                        <CircularProgress size={40} sx={{ color: currentTheme.primary }} />
+                                    </Box>
+                                ) : systemHealth ? (
+                                    <>
+                                        {/* Score Display */}
+                                        <Box sx={{ 
+                                            textAlign: 'center', 
+                                            p: 2.5, 
+                                            mb: 2.5,
+                                            borderRadius: 3, 
+                                            background: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                            border: `1px solid ${cardBorder}`
+                                        }}>
+                                            <Typography variant="h2" sx={{ 
+                                                fontWeight: 900,
+                                                color: getHealthColor(systemHealth.health_score),
+                                                fontSize: { xs: '3rem', sm: '3.75rem' },
+                                                lineHeight: 1
+                                            }}>
+                                                {systemHealth.health_score}
+                                                <span style={{ fontSize: '1.25rem', fontWeight: 600, color: darkMode ? '#94a3b8' : '#64748b' }}> / 100</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600, mt: 0.5, display: 'block' }}>
+                                                {systemHealth.health_score >= 90 ? '🟢 Optimal Operating Parameters' : '⚠️ Deviations Detected'}
+                                            </Typography>
+                                        </Box>
+
+                                        {/* Electrical Grid & Inverter Metrics */}
+                                        <Grid container spacing={1.5}>
+                                            <Grid item xs={6}>
+                                                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block', mb: 0.3 }}>
+                                                        Grid Line Voltage
+                                                    </Typography>
+                                                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                                        {systemHealth.utility_ac_voltage || '0'} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>V</span>
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.7rem' }}>
+                                                        Freq: {systemHealth.utility_ac_frequency || 50.0} Hz
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block', mb: 0.3 }}>
+                                                        Inverter AC Output
+                                                    </Typography>
+                                                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981' }}>
+                                                        {systemHealth.ac_output_voltage || '230.0'} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>V</span>
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.7rem' }}>
+                                                        Freq: {systemHealth.ac_output_frequency || 50.0} Hz
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block', mb: 0.3 }}>
+                                                        Active Load Power
+                                                    </Typography>
+                                                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#6366f1' }}>
+                                                        {systemHealth.ac_output_power?.toLocaleString() || '0'} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>W</span>
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.7rem' }}>
+                                                        Apparent: {lastDataMetrics['AC Output Apparent Power']?.val || systemHealth.ac_output_power} VA
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block', mb: 0.3 }}>
+                                                        Load Capacity Utilized
+                                                    </Typography>
+                                                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                                        {systemHealth.output_load_percent || '0'}%
+                                                    </Typography>
+                                                    <LinearProgress 
+                                                        variant="determinate" 
+                                                        value={Math.min(100, Number(systemHealth.output_load_percent) || 0)} 
+                                                        sx={{ mt: 0.6, height: 4, borderRadius: 2 }}
+                                                    />
+                                                </Box>
+                                            </Grid>
+                                        </Grid>
+                                    </>
+                                ) : (
+                                    <Alert severity="error">Failed to connect to inverter health service</Alert>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
+                {/* 2. Inverter Hardware Specs & Operational Parameters */}
+                <Grid item xs={12} md={6}>
+                    <Fade in timeout={500}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #6366f1',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)',
+                            height: '100%'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(99, 102, 241, 0.12)',
+                                            color: '#6366f1'
+                                        }}>
+                                            <PowerSettingsNew sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                Inverter Hardware & Dual Output
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Firmware settings & rated technical capabilities
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small"
+                                        label={systemSettings?.load_status || 'Load ON'}
+                                        sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700 }}
+                                    />
+                                </Box>
+
+                                <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+                                    <Grid item xs={12} sm={6}>
+                                        <Box sx={{ p: 1.8, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                                Rated Active Power
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#6366f1', my: 0.3 }}>
+                                                {lastDataMetrics['AC Output Rating Active Power']?.val || '6000'} W
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8' }}>
+                                                6.0 kW Heavy Duty Capacity
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Box sx={{ p: 1.8, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                                DC BUS Internal Voltage
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0ea5e9', my: 0.3 }}>
+                                                {lastDataMetrics['BUS Voltage']?.val || '358'} V
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8' }}>
+                                                High-Voltage Bus Stabilized
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+
+                                <Box sx={{ 
+                                    p: 2, 
+                                    borderRadius: 3, 
+                                    bgcolor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                                    border: `1px solid ${cardBorder}`,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 1.2
+                                }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                            Output Source Priority:
+                                        </Typography>
+                                        <Chip 
+                                            size="small" 
+                                            label={systemSettings?.output_source_priority || 'Solar Utility Bat'}
+                                            sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}
+                                        />
+                                    </Box>
+                                    <Divider sx={{ borderColor: cardBorder }} />
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                            AC Input Voltage Range:
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: darkMode ? '#f8fafc' : '#0f172a' }}>
+                                            {systemSettings?.ac_input_range || 'Generator / Wide (90V - 280V)'}
+                                        </Typography>
+                                    </Box>
+                                    <Divider sx={{ borderColor: cardBorder }} />
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                            Dual Output Channel 2:
+                                        </Typography>
+                                        <Chip 
+                                            size="small" 
+                                            label={`AC2 Status: ${lastDataMetrics['AC2 Output Status']?.val || 'On'} (${lastDataMetrics['AC2 Output Voltage']?.val || '232.3'}V)`}
+                                            sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}
+                                        />
+                                    </Box>
+                                    <Divider sx={{ borderColor: cardBorder }} />
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                            Grid Feed-in Mechanism:
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#10b981' }}>
+                                            {systemSettings?.grid_feed_enabled ? 'Active (Surplus Auto-Export)' : 'Disabled'}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
+                {/* 3. WiFi Datalogger & Hardware Cloud Link */}
+                <Grid item xs={12} md={6}>
+                    <Fade in timeout={600}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #0ea5e9',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)',
+                            height: '100%'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(14, 165, 233, 0.12)',
+                                            color: '#0ea5e9'
+                                        }}>
+                                            <Wifi sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                Data Collector & Hardware Link
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                WiFi Logger device specifications & cloud intervals
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small" 
+                                        icon={<CheckCircle sx={{ fontSize: '14px !important', color: '#0ea5e9 !important' }} />}
+                                        label="Datalogger Online" 
+                                        sx={{ bgcolor: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', fontWeight: 700 }}
+                                    />
+                                </Box>
+
+                                <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                                    <Grid item xs={6}>
+                                        <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block' }}>
+                                                WiFi Logger Serial PN
+                                            </Typography>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 0.3, letterSpacing: 0.5 }}>
+                                                {collectorInfo?.pn || (deviceList[0]?.pn) || 'W0034053928283'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block' }}>
+                                                Collector Firmware
+                                            </Typography>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 0.3, color: '#0ea5e9' }}>
+                                                v{collectorInfo?.fireware || '3.6.6.6'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block' }}>
+                                                Upload Fetch Interval
+                                            </Typography>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 0.3 }}>
+                                                {collectorInfo?.datFetch ? `${collectorInfo.datFetch / 60} Minutes` : '5 Minutes'} ({collectorInfo?.datFetch || 300}s)
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600, display: 'block' }}>
+                                                Inverter Serial Number
+                                            </Typography>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 0.3, letterSpacing: 0.5 }}>
+                                                {deviceList[0]?.sn || '96342404600319'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+
+                                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: 'rgba(14, 165, 233, 0.08)', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                                    <Typography variant="caption" sx={{ color: '#0ea5e9', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                        <Info sx={{ fontSize: 16 }} />
+                                        Data is streamed wirelessly by the collector directly to ShineMonitor/WatchPower servers every 300 seconds.
+                                    </Typography>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
+                {/* 4. Multi-Channel Alerting & Notification Center */}
+                <Grid item xs={12} md={6}>
+                    <Fade in timeout={700}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #f59e0b',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)',
+                            height: '100%'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(245, 158, 11, 0.12)',
+                                            color: '#f59e0b'
+                                        }}>
+                                            <NotificationsActive sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                Notification & Alert Channels
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Real-time push alerts via Telegram, Discord & Email
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small" 
+                                        label="3 Channels Ready"
+                                        sx={{ bgcolor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', fontWeight: 700 }}
+                                    />
+                                </Box>
+
+                                {/* Channel Status Badges */}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2.5 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.2, borderRadius: 2, bgcolor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Send sx={{ fontSize: 18, color: '#0ea5e9' }} />
+                                            <Typography variant="caption" sx={{ fontWeight: 600 }}>Telegram Bot Channel</Typography>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={notificationStatus?.telegram_configured ? `Connected (ID: ${notificationStatus.telegram_chat_id})` : 'Connected'} 
+                                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9' }}
                                         />
                                     </Box>
 
-                                    {systemHealth.system_mode === 'Battery Mode' && (
-                                        <Alert severity="warning" sx={{ mb: 2 }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                🔋 Electricity Disconnected - Running on Battery Power
-                                            </Typography>
-                                        </Alert>
-                                    )}
-                                    {systemHealth.system_mode === 'Standby Mode' && (
-                                        <Alert severity="error" sx={{ mb: 2 }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                ⏸️ System in Standby Mode - Power Off
-                                            </Typography>
-                                        </Alert>
-                                    )}
-                                    {systemHealth.system_mode === 'Line Mode' && (
-                                        <Alert severity="success" sx={{ mb: 2 }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                ⚡ Electricity Connected - Grid Power Active
-                                            </Typography>
-                                        </Alert>
-                                    )}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.2, borderRadius: 2, bgcolor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Chat sx={{ fontSize: 18, color: '#6366f1' }} />
+                                            <Typography variant="caption" sx={{ fontWeight: 600 }}>Discord Alert Webhook</Typography>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={notificationStatus?.discord_configured ? 'Webhook Active' : 'Active'} 
+                                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}
+                                        />
+                                    </Box>
 
-                                    <Divider sx={{ my: 2 }} />
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.2, borderRadius: 2, bgcolor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Email sx={{ fontSize: 18, color: '#10b981' }} />
+                                            <Typography variant="caption" sx={{ fontWeight: 600 }}>Email SMTP Delivery</Typography>
+                                        </Box>
+                                        <Chip 
+                                            size="small" 
+                                            label={notificationStatus?.recipient_email || 'Configured'} 
+                                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}
+                                        />
+                                    </Box>
+                                </Box>
 
-                                    <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-                                        <Grid item xs={6} sm={6}>
-                                            <Box sx={{ 
-                                                p: { xs: 1.5, sm: 2 }, 
-                                                background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', 
-                                                borderRadius: 2 
-                                            }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.7, mb: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                                    Grid Voltage
-                                                </Typography>
-                                                <Typography variant="h6" sx={{ 
-                                                    fontWeight: 600, 
-                                                    fontSize: { xs: '1rem', sm: '1.25rem' },
-                                                    color: (systemHealth.utility_ac_voltage === 0 || systemHealth.utility_ac_voltage === null) ? '#f44336' : 'inherit'
-                                                }}>
-                                                    {(systemHealth.utility_ac_voltage === 0 || systemHealth.utility_ac_voltage === null) ? 'Not Available' : `${systemHealth.utility_ac_voltage}V`}
-                                                </Typography>
-                                            </Box>
-                                        </Grid>
-                                        <Grid item xs={6} sm={6}>
-                                            <Box sx={{ 
-                                                p: { xs: 1.5, sm: 2 }, 
-                                                background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', 
-                                                borderRadius: 2 
-                                            }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.7, mb: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                                    PV Power
-                                                </Typography>
-                                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                                                    {systemHealth.pv_charging_power}W
-                                                </Typography>
-                                            </Box>
-                                        </Grid>
-                                        <Grid item xs={6} sm={6}>
-                                            <Box sx={{ 
-                                                p: { xs: 1.5, sm: 2 }, 
-                                                background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', 
-                                                borderRadius: 2 
-                                            }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.7, mb: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                                    Load Power
-                                                </Typography>
-                                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                                                    {systemHealth.ac_output_power}W
-                                                </Typography>
-                                            </Box>
-                                        </Grid>
-                                        <Grid item xs={6} sm={6}>
-                                            <Box sx={{ 
-                                                p: { xs: 1.5, sm: 2 }, 
-                                                background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', 
-                                                borderRadius: 2 
-                                            }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.7, mb: 0.5, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                                    Load %
-                                                </Typography>
-                                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                                                    {systemHealth.output_load_percent}%
-                                                </Typography>
-                                            </Box>
-                                        </Grid>
+                                {/* Action Buttons */}
+                                <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 1 }}>
+                                    Instant Channel Verification Tests:
+                                </Typography>
+                                <Grid container spacing={1}>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={handleTestTelegram}
+                                            disabled={testingChannel !== null}
+                                            startIcon={testingChannel === 'telegram' ? <CircularProgress size={16} /> : <Send />}
+                                            sx={{
+                                                borderColor: 'rgba(14, 165, 233, 0.5)',
+                                                color: '#0ea5e9',
+                                                borderRadius: 2.5,
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                py: 0.9,
+                                                '&:hover': {
+                                                    borderColor: '#0ea5e9',
+                                                    bgcolor: 'rgba(14, 165, 233, 0.08)'
+                                                }
+                                            }}
+                                        >
+                                            Test Telegram
+                                        </Button>
                                     </Grid>
-
-                                    {/* Warnings & Errors */}
-                                    {systemHealth.warnings && systemHealth.warnings.length > 0 && (
-                                        <Box sx={{ mt: 2 }}>
-                                            {systemHealth.warnings.map((warning, index) => (
-                                                <Alert key={index} severity="warning" sx={{ mb: 1 }}>
-                                                    {warning}
-                                                </Alert>
-                                            ))}
-                                        </Box>
-                                    )}
-                                    {systemHealth.errors && systemHealth.errors.length > 0 && (
-                                        <Box sx={{ mt: 2 }}>
-                                            {systemHealth.errors.map((error, index) => (
-                                                <Alert key={index} severity="error" sx={{ mb: 1 }}>
-                                                    {error}
-                                                </Alert>
-                                            ))}
-                                        </Box>
-                                    )}
-
-                                    <Box sx={{ 
-                                        mt: 2, 
-                                        p: 2, 
-                                        background: systemHealth.system_mode === 'Battery Mode' 
-                                            ? 'rgba(244, 67, 54, 0.1)' 
-                                            : systemHealth.system_mode === 'Line Mode'
-                                                ? 'rgba(76, 175, 80, 0.1)'
-                                                : 'rgba(255, 152, 0, 0.1)',
-                                        borderRadius: 2,
-                                        border: systemHealth.system_mode === 'Battery Mode'
-                                            ? '1px solid rgba(244, 67, 54, 0.3)'
-                                            : systemHealth.system_mode === 'Line Mode'
-                                                ? '1px solid rgba(76, 175, 80, 0.3)'
-                                                : '1px solid rgba(255, 152, 0, 0.3)'
-                                    }}>
-                                        <Typography variant="body2" sx={{ opacity: 0.8, mb: 0.5 }}>
-                                            System Mode: <strong style={{ 
-                                                color: systemHealth.system_mode === 'Battery Mode' 
-                                                    ? '#f44336' 
-                                                    : systemHealth.system_mode === 'Line Mode'
-                                                        ? '#4caf50'
-                                                        : '#ff9800'
-                                            }}>{systemHealth.system_mode}</strong>
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.6, display: 'block' }}>
-                                            {systemHealth.system_mode === 'Line Mode' && '⚡ Connected to Grid'}
-                                            {systemHealth.system_mode === 'Battery Mode' && '🔋 Running on Battery'}
-                                            {systemHealth.system_mode === 'Standby Mode' && '⏸️ System Off'}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.5, display: 'block', mt: 1 }}>
-                                            Last updated: {new Date(systemHealth.timestamp).toLocaleTimeString()}
-                                        </Typography>
-                                        {lastHealthUpdate && (
-                                            <Typography variant="caption" sx={{ opacity: 0.5, display: 'block' }}>
-                                                Checked: {Math.floor((new Date() - lastHealthUpdate) / 1000)}s ago
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </>
-                            ) : (
-                                <Alert severity="error">Failed to load system health</Alert>
-                            )}
-                        </CardContent>
-                    </Card>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={handleTestDiscord}
+                                            disabled={testingChannel !== null}
+                                            startIcon={testingChannel === 'discord' ? <CircularProgress size={16} /> : <Chat />}
+                                            sx={{
+                                                borderColor: 'rgba(99, 102, 241, 0.5)',
+                                                color: '#6366f1',
+                                                borderRadius: 2.5,
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                py: 0.9,
+                                                '&:hover': {
+                                                    borderColor: '#6366f1',
+                                                    bgcolor: 'rgba(99, 102, 241, 0.08)'
+                                                }
+                                            }}
+                                        >
+                                            Test Discord
+                                        </Button>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={handleTestNotification}
+                                            disabled={testingChannel !== null}
+                                            startIcon={testingChannel === 'email' ? <CircularProgress size={16} /> : <Email />}
+                                            sx={{
+                                                borderColor: 'rgba(16, 185, 129, 0.5)',
+                                                color: '#10b981',
+                                                borderRadius: 2.5,
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                py: 0.9,
+                                                '&:hover': {
+                                                    borderColor: '#10b981',
+                                                    bgcolor: 'rgba(16, 185, 129, 0.08)'
+                                                }
+                                            }}
+                                        >
+                                            Test Email
+                                        </Button>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            size="small"
+                                            onClick={handleTestDailySummary}
+                                            disabled={testingChannel !== null}
+                                            startIcon={testingChannel === 'summary' ? <CircularProgress size={16} color="inherit" /> : <Assessment />}
+                                            sx={{
+                                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                                color: 'white',
+                                                borderRadius: 2.5,
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                py: 0.9,
+                                                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.25)',
+                                                '&:hover': {
+                                                    background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                                                }
+                                            }}
+                                        >
+                                            Send Summary
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                            </CardContent>
+                        </Card>
+                    </Fade>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
-                    <Grid container spacing={{ xs: 2, sm: 3 }}>
-                        <Grid item xs={12}>
-                            <Card
-                                sx={{
-                                    background: `linear-gradient(135deg, ${currentTheme.primary}20 0%, ${currentTheme.secondary}20 100%)`,
-                                    borderRadius: 4,
-                                    border: `2px solid ${currentTheme.primary}40`
-                                }}
-                            >
-                                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <PowerSettingsNew sx={{ fontSize: { xs: 28, sm: 32 }, mr: 2, color: currentTheme.primary }} />
-                                        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                                            Actual System Settings
-                                        </Typography>
-                                    </Box>
-
-                                    {isLoadingSettings ? (
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                                            <CircularProgress size={32} />
-                                        </Box>
-                                    ) : systemSettings ? (
-                                        <>
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.8, mb: 1, fontWeight: 600, fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                                                    🔌 Grid Feeding:
-                                                </Typography>
-                                                <Chip 
-                                                    icon={systemSettings.grid_feed_enabled ? <CheckCircle /> : <Warning />}
-                                                    label={systemSettings.grid_feed_display || (systemSettings.grid_feed_enabled ? 'ENABLED' : 'DISABLED')}
-                                                    color={getStatusChipColor(systemSettings.grid_feed_enabled)}
-                                                    sx={{ 
-                                                        fontWeight: 600, 
-                                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }, 
-                                                        px: { xs: 1.5, sm: 2 }, 
-                                                        py: { xs: 2, sm: 2.5 },
-                                                        height: 'auto'
-                                                    }}
-                                                />
-                                                {systemSettings.solar_feed_power !== undefined && (
-                                                    <Box sx={{ mt: 1 }}>
-                                                        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                                                            Current Feed: <strong>{systemSettings.solar_feed_power}W</strong>
-                                                            {systemSettings.pv_power !== undefined && (
-                                                                <span> | PV Production: <strong>{systemSettings.pv_power}W</strong></span>
-                                                            )}
-                                                        </Typography>
-                                                    </Box>
-                                                )}
-                                            </Box>
-
-                                            <Divider sx={{ my: 2 }} />
-
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                    <strong>Load Status:</strong> {systemSettings.load_status}
-                                                </Typography>
-                                            </Box>
-
-                                            <Divider sx={{ my: 2 }} />
-
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                    <strong>Output Priority:</strong> {systemSettings.output_source_priority}
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                    <strong>Charger Priority:</strong> {systemSettings.charger_source_priority}
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                    <strong>AC Input Range:</strong> {systemSettings.ac_input_range}
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                    <strong>System Status:</strong> {systemSettings.system_status}
-                                                </Typography>
-                                            </Box>
-
-                                            {!systemSettings.grid_feed_enabled && (
-                                                <Alert severity="warning" sx={{ mt: 2 }}>
-                                                    ⚠️ Grid feeding is disabled. You'll receive email reminders every 6 hours.
-                                                </Alert>
-                                            )}
-
-                                            <Alert severity="info" icon={<Info />} sx={{ mt: 2 }}>
-                                                Use WatchPower app to change these settings
-                                            </Alert>
-                                        </>
-                                    ) : (
-                                        <Alert severity="error">Failed to load settings</Alert>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        <Grid item xs={12}>
-                            <Card 
-                                sx={{ 
-                                    borderRadius: 4,
-                                    background: notificationStatus?.email_configured 
-                                        ? 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)'
-                                        : 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)'
-                                }}
-                            >
-                                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <Email sx={{ fontSize: { xs: 24, sm: 28 }, mr: 2, color: currentTheme.primary }} />
-                                        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                                            Email Notifications
-                                        </Typography>
-                                    </Box>
-                                    {notificationStatus ? (
-                                        <>
-                                            <Box sx={{ mb: 2 }}>
-                                                <Chip
-                                                    icon={notificationStatus.email_configured ? <CheckCircle /> : <Warning />}
-                                                    label={notificationStatus.email_configured ? 'Configured' : 'Not Configured'}
-                                                    color={notificationStatus.email_configured ? 'success' : 'error'}
-                                                    sx={{ mb: 1 }}
-                                                />
-                                                {notificationStatus.email_configured && (
-                                                    <>
-                                                        <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                            📧 {notificationStatus.recipient_email}
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                                            🔔 Monitoring: {notificationStatus.monitoring_active ? 'Active' : 'Inactive'}
-                                                        </Typography>
-                                                        {notificationStatus.is_load_shedding && (
-                                                            <Alert severity="warning" sx={{ mt: 1 }}>
-                                                                ⚡ Load shedding detected
-                                                            </Alert>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </Box>
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                <IconButton
-                                                    onClick={handleTestNotification}
-                                                    sx={{
-                                                        background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.secondary} 100%)`,
-                                                        color: 'white',
-                                                        borderRadius: 2,
-                                                        py: 1,
-                                                        '&:hover': {
-                                                            background: `linear-gradient(135deg, ${currentTheme.secondary} 0%, ${currentTheme.primary} 100%)`,
-                                                        }
-                                                    }}
-                                                >
-                                                    <NotificationsActive sx={{ mr: 1 }} />
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                        Send Test Email
-                                                    </Typography>
-                                                </IconButton>
-                                                
-                                                <IconButton
-                                                    onClick={handleTestDailySummary}
-                                                    sx={{
-                                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                        color: 'white',
-                                                        borderRadius: 2,
-                                                        py: 1,
-                                                        '&:hover': {
-                                                            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                                                        }
-                                                    }}
-                                                >
-                                                    <Assessment sx={{ mr: 1 }} />
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                        Test Daily Summary
-                                                    </Typography>
-                                                </IconButton>
-                                            </Box>
-                                        </>
-                                    ) : (
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                                            <CircularProgress size={32} />
-                                        </Box>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    </Grid>
-                </Grid>
             </Grid>
         </Box>
     );

@@ -30,11 +30,18 @@ export const API_ENDPOINTS = {
     // NEW: System Health & Monitoring
     systemHealth: () => `${API_BASE_URL}/system/health`,
     systemSettings: () => `${API_BASE_URL}/system/settings/current`,
+    collectorInfo: () => `${API_BASE_URL}/collector-info`,
+    deviceLastData: () => `${API_BASE_URL}/last-data`,
+    deviceStatus: () => `${API_BASE_URL}/device-status`,
+    devicesList: () => `${API_BASE_URL}/devices`,
     
-    // NEW: Notifications
+    // NEW: Notifications & Alert Channels
     notificationTest: () => `${API_BASE_URL}/notifications/test`,
     notificationStatus: () => `${API_BASE_URL}/notifications/status`,
     testDailySummary: () => `${API_BASE_URL}/notifications/test-daily-summary`,
+    testTelegram: () => `${API_BASE_URL}/notifications/test-telegram`,
+    testDiscord: () => `${API_BASE_URL}/notifications/test-discord`,
+    testEmail: () => `${API_BASE_URL}/notifications/test-email`,
     
     // NEW: Alerts Configuration
     alertsConfig: () => `${API_BASE_URL}/alerts/config`
