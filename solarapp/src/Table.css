@@ -1,34 +1,39 @@
-/* Modern Solar Dashboard Styles */
+/* Modern Solar Dashboard Styles - Cutting Edge CleanTech UI */
 
-.center-asa{
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --font-primary: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
 }
 
-body{
-    font-family: "Montserrat", sans-serif !important;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    background-attachment: fixed;
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-primary) !important;
     margin: 0;
     padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* Smooth Animations */
 @keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
 }
 
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(16px);
     }
     to {
         opacity: 1;
@@ -36,194 +41,68 @@ body{
     }
 }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.8;
-    }
+.animate-fade-in {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Stat Cards Styling */
 .stat-card {
-    animation: fadeInUp 0.6s ease-out;
+    animation: fadeInUp 0.5s ease-out;
     position: relative;
     overflow: hidden;
+    border-radius: 18px !important;
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    bottom: -50%;
-    left: -50%;
-    background: linear-gradient(
-        45deg,
-        transparent,
-        rgba(255, 255, 255, 0.1),
-        transparent
-    );
-    transform: rotate(45deg);
-    transition: all 0.5s ease;
+.stat-card:hover {
+    transform: translateY(-4px) !important;
 }
 
-.stat-card:hover::before {
-    animation: shine 1s ease;
-}
-
-@keyframes shine {
-    0% {
-        left: -100%;
-    }
-    100% {
-        left: 100%;
-    }
-}
-
-/* Chart Card Styling */
-.chart-card {
-    animation: fadeInUp 0.8s ease-out;
-    position: relative;
-}
-
-/* Recharts Customization */
+/* Mobile Chart Touch Optimization */
 .recharts-wrapper {
-    margin: 0 auto;
+    touch-action: pan-x pan-y !important;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
-.recharts-surface {
-    border-radius: 12px;
-}
-
-.recharts-legend-wrapper {
-    padding: 20px 0 !important;
-}
-
-.recharts-default-legend {
-    display: flex !important;
-    justify-content: center !important;
-    gap: 24px !important;
-}
-
-.recharts-legend-item {
-    margin-right: 20px !important;
-    font-weight: 500 !important;
+/* Ensure tooltip never blocks finger on mobile */
+.recharts-tooltip-wrapper {
+    z-index: 100 !important;
+    pointer-events: none !important;
 }
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 10px;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    background: rgba(148, 163, 184, 0.6);
 }
 
-/* Responsive Styles */
+/* Responsive adjustments */
 @media (max-width: 768px) {
-    .css-8ksggj {
-        margin-left: 0 !important;
-        padding-inline: 0 !important;
-    }
-    
-    .myasn {
-        padding-inline: 0 !important;
-    }
-    
-    .muasn {
-        box-shadow: none !important;
-        background-color: transparent !important;
-    }
-
-    .stat-card {
-        margin-bottom: 16px;
-    }
-
     .recharts-wrapper {
-        font-size: 12px;
+        font-size: 11px;
     }
-    
-    /* Make chart responsive on mobile */
-    .recharts-surface {
-        max-width: 100% !important;
-    }
-    
     .recharts-legend-wrapper {
         font-size: 11px !important;
     }
-}
-
-@media (max-width: 480px) {
-    .stat-card h3 {
-        font-size: 1.8rem !important;
+    /* Completely hide floating tooltip box on mobile so it never covers the screen or finger */
+    .recharts-tooltip-wrapper {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
-
-    .chart-card {
-        border-radius: 16px !important;
-    }
-    
-    /* Smaller text on very small screens */
-    .recharts-cartesian-axis-tick-value {
-        font-size: 10px !important;
-    }
-}
-
-/* Loading Animation */
-.loading-pulse {
-    animation: pulse 1.5s ease-in-out infinite;
-}
-
-/* Button Hover Effects */
-button {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Card Shadow Enhancement */
-.MuiCard-root {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Tooltip Enhancement */
-.recharts-tooltip-wrapper {
-    z-index: 1000 !important;
-}
-
-/* Smooth Color Transitions */
-* {
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Glass Morphism Effect for Mobile Menu */
-@media (max-width: 768px) {
-    .MuiDrawer-paper {
-        backdrop-filter: blur(20px) !important;
-        background: rgba(26, 26, 46, 0.95) !important;
-    }
-}
-
-/* Enhanced Focus States */
-.MuiTextField-root:focus-within {
-    transform: translateY(-2px);
-    transition: transform 0.2s ease;
-}
-
-/* Gradient Text Effect */
-.gradient-text {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }

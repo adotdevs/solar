@@ -64,9 +64,15 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })(
 const AppBarStyled = styled(AppBar, {
     shouldForwardProp: (prop) => prop !== "open",
 })(({ theme, open }) => ({
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    backdropFilter: "blur(10px)",
-    boxShadow: "0 4px 20px 0 rgba(31, 38, 135, 0.2)",
+    background: theme.palette.mode === 'dark' 
+        ? "rgba(11, 15, 25, 0.82)" 
+        : "rgba(255, 255, 255, 0.85)",
+    color: theme.palette.mode === 'dark' ? "#f8fafc" : "#0f172a",
+    backdropFilter: "blur(20px)",
+    borderBottom: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}`,
+    boxShadow: theme.palette.mode === 'dark' 
+        ? "0 4px 20px rgba(0, 0, 0, 0.4)" 
+        : "0 4px 20px rgba(0, 0, 0, 0.04)",
     transition: theme.transitions.create(["margin", "width"], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
@@ -94,7 +100,7 @@ const Dashboard = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down("md"));
     const [mobileOpen, setMobileOpen] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
-    const [themeColor, setThemeColor] = useState('purple');
+    const [themeColor, setThemeColor] = useState('emerald');
     const [themeAnchorEl, setThemeAnchorEl] = useState(null);
     
     const navigate = useNavigate();
@@ -110,15 +116,26 @@ const Dashboard = () => {
         { text: "System Controls", icon: <Settings />, path: "/controls" },
     ];
     
-    // Theme colors
+    // Modern harmonious Cleantech color themes
     const themeColors = {
-        purple: { primary: '#667eea', secondary: '#764ba2' },
-        blue: { primary: '#4facfe', secondary: '#00f2fe' },
-        green: { primary: '#11998e', secondary: '#38ef7d' },
-        orange: { primary: '#fa709a', secondary: '#fee140' }
+        emerald: { primary: '#10b981', secondary: '#059669', gradient: 'linear-gradient(135deg, #10b981 0%, #047857 100%)' },
+        purple: { primary: '#6366f1', secondary: '#4f46e5', gradient: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)' },
+        blue: { primary: '#0ea5e9', secondary: '#0284c7', gradient: 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)' },
+        amber: { primary: '#f59e0b', secondary: '#d97706', gradient: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)' }
     };
 
     const customTheme = createTheme({
+        typography: {
+            fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+            h3: { fontWeight: 800, letterSpacing: '-0.02em' },
+            h4: { fontWeight: 700, letterSpacing: '-0.01em' },
+            h5: { fontWeight: 600 },
+            h6: { fontWeight: 600 },
+            button: { textTransform: 'none', fontWeight: 600 },
+        },
+        shape: {
+            borderRadius: 16,
+        },
         palette: {
             mode: darkMode ? 'dark' : 'light',
             primary: {
@@ -128,8 +145,8 @@ const Dashboard = () => {
                 main: themeColors[themeColor].secondary,
             },
             background: {
-                default: darkMode ? '#121212' : '#f5f7fa',
-                paper: darkMode ? '#1e1e1e' : '#ffffff',
+                default: darkMode ? '#0a0e17' : '#f8fafc',
+                paper: darkMode ? '#111827' : '#ffffff',
             },
         },
     });
@@ -149,18 +166,33 @@ const Dashboard = () => {
                     >
                         <MenuIcon />
                     </IconButton>
-                    <Typography 
-                        variant="h6" 
-                        noWrap 
-                        component="div" 
-                        sx={{ 
-                            flexGrow: 1,
-                            fontSize: { xs: '0.875rem', sm: '1.25rem' },
-                            fontWeight: 600
-                        }}
-                    >
-                        Solar Power Dashboard
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+                        <Box sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '10px',
+                            background: `linear-gradient(135deg, ${themeColors[themeColor].primary} 0%, ${themeColors[themeColor].secondary} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 14px ${themeColors[themeColor].primary}40`,
+                        }}>
+                            <SolarIcon sx={{ color: 'white', fontSize: 22 }} />
+                        </Box>
+                        <Typography 
+                            variant="h6" 
+                            noWrap 
+                            component="div" 
+                            sx={{ 
+                                fontSize: { xs: '0.95rem', sm: '1.2rem' },
+                                fontWeight: 700,
+                                letterSpacing: '-0.02em',
+                                color: darkMode ? '#f8fafc' : '#0f172a'
+                            }}
+                        >
+                            Solar Power Dashboard
+                        </Typography>
+                    </Box>
                     
                     {/* Dark Mode Toggle */}
                     <Tooltip title={darkMode ? "Light Mode" : "Dark Mode"}>

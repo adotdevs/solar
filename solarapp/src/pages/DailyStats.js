@@ -46,7 +46,11 @@ import {
     Pause,
     Today as TodayIcon,
     CheckCircle,
-    Warning
+    Warning,
+    Close,
+    TouchApp,
+    Speed,
+    ElectricBolt
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { API_ENDPOINTS, CONFIG } from "../constants";
@@ -72,6 +76,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
     const [gridFeedEnabled, setGridFeedEnabled] = useState(null);
     const [isLoadingGridStatus, setIsLoadingGridStatus] = useState(true);
     const [maxPvPoint, setMaxPvPoint] = useState(null);
+    const [scrubbedPoint, setScrubbedPoint] = useState(null);
 
     const getTodayLocal = () => {
         const today = new Date();
@@ -265,56 +270,71 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
     }, [selectedDate, isLiveMode]);
 
     const CustomTooltip = ({ active, payload, label }) => {
+        useEffect(() => {
+            if (active && payload && payload.length) {
+                setScrubbedPoint(payload[0].payload);
+            }
+        }, [active, payload]);
+
+        // On mobile, suppress the floating card so it never blocks the screen or finger
+        if (isMobile) {
+            return null;
+        }
+
         if (active && payload && payload.length) {
             const currentData = payload[0].payload;
             const modeColor = currentData.mode === "Line Mode"
-                ? "#4caf50"
+                ? "#10b981"
                 : currentData.mode === "Battery Mode"
-                    ? "#f44336"
-                    : "#ff9800";
+                    ? "#f59e0b"
+                    : "#ef4444";
 
             return (
                 <Paper 
-                    elevation={12} 
+                    elevation={10} 
                     sx={{ 
-                        p: 2.5, 
-                        backgroundColor: "rgba(255, 255, 255, 0.98)",
-                        backdropFilter: 'blur(10px)',
+                        p: 2, 
+                        backgroundColor: darkMode ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.96)",
+                        backdropFilter: 'blur(12px)',
                         borderRadius: 3,
-                        border: '1px solid rgba(0, 0, 0, 0.1)',
-                        minWidth: 200
+                        border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'}`,
+                        color: darkMode ? '#f1f5f9' : '#0f172a',
+                        minWidth: 190,
+                        boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.5)' : '0 10px 30px rgba(0,0,0,0.1)'
                     }}
                 >
-                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1.5, color: '#333' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: darkMode ? '#f8fafc' : '#0f172a', display: 'flex', alignItems: 'center', gap: 0.8 }}>
                         ⏰ {label}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8 }}>
                         <Box sx={{ 
-                            width: 12, 
-                            height: 12, 
+                            width: 10, 
+                            height: 10, 
                             borderRadius: '50%', 
-                            backgroundColor: '#82ca9d',
-                            mr: 1.5
+                            backgroundColor: '#10b981',
+                            mr: 1.2,
+                            boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)'
                         }} />
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            PV: <span style={{ color: '#82ca9d', fontWeight: 700 }}>{currentData.pv_power} W</span>
-                    </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
+                            PV: <strong style={{ color: '#10b981' }}>{currentData.pv_power} W</strong>
+                        </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.2 }}>
                         <Box sx={{ 
-                            width: 12, 
-                            height: 12, 
+                            width: 10, 
+                            height: 10, 
                             borderRadius: '50%', 
-                            backgroundColor: '#8884d8',
-                            mr: 1.5
+                            backgroundColor: '#6366f1',
+                            mr: 1.2,
+                            boxShadow: '0 0 8px rgba(99, 102, 241, 0.6)'
                         }} />
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            Load: <span style={{ color: '#8884d8', fontWeight: 700 }}>{currentData.load_power} W</span>
-                    </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
+                            Load: <strong style={{ color: '#6366f1' }}>{currentData.load_power} W</strong>
+                        </Typography>
                     </Box>
                     <Box sx={{ 
-                        pt: 1.5, 
-                        borderTop: '1px solid rgba(0, 0, 0, 0.1)',
+                        pt: 1, 
+                        borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)'}`,
                         display: 'flex',
                         alignItems: 'center'
                     }}>
@@ -323,29 +343,29 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                             height: 8, 
                             borderRadius: '50%', 
                             backgroundColor: modeColor,
-                            mr: 1.5
+                            mr: 1.2
                         }} />
-                        <Typography variant="body2" sx={{ color: modeColor, fontWeight: 700 }}>
-                            {currentData.mode === "Line Mode" ? "⚡ Connected" :
-                                currentData.mode === "Battery Mode" ? "🔋 Disconnected" :
-                                    currentData.mode === "Standby Mode" ? "⏸️ System off" : "❓ Out of range"}
-                    </Typography>
+                        <Typography variant="caption" sx={{ color: modeColor, fontWeight: 700 }}>
+                            {currentData.mode === "Line Mode" ? "⚡ Connected (Grid)" :
+                                currentData.mode === "Battery Mode" ? "🔋 Battery Mode" :
+                                    currentData.mode === "Standby Mode" ? "⏸️ System Off" : (currentData.mode || "Standby")}
+                        </Typography>
                     </Box>
                     {(() => {
                         const borderingGap = missingDataGaps.find(g => g.start === label || g.end === label);
                         if (!borderingGap) return null;
                         return (
                             <Box sx={{ 
-                                mt: 1.5, 
-                                pt: 1, 
-                                borderTop: '1px dashed rgba(244, 67, 54, 0.4)',
+                                mt: 1.2, 
+                                pt: 0.8, 
+                                borderTop: '1px dashed rgba(239, 68, 68, 0.4)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 0.8
                             }}>
-                                <PowerOff sx={{ fontSize: 15, color: '#f44336' }} />
-                                <Typography variant="caption" sx={{ color: '#d32f2f', fontWeight: 600 }}>
-                                    {borderingGap.start === label ? 'System went offline after this' : 'System recovered here'} ({formatMissingDuration(borderingGap.duration)})
+                                <PowerOff sx={{ fontSize: 14, color: '#ef4444' }} />
+                                <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 600 }}>
+                                    {borderingGap.start === label ? 'Downtime started' : 'System resumed'} ({formatMissingDuration(borderingGap.duration)})
                                 </Typography>
                             </Box>
                         );
@@ -520,329 +540,464 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
 
     return (
         <Box>
-            <Grid container spacing={{ xs: 2, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
-                <Grid item xs={12} sm={6} md={6} lg={3} sx={{ display: 'flex' }}>
-                    <Fade in timeout={500} style={{ width: '100%' }}>
-                        <Card 
-                            className="stat-card"
-                            sx={{
-                                width: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                color: "white",
-                                borderRadius: 4,
-                                boxShadow: "0 10px 40px rgba(102, 126, 234, 0.3)",
-                                transition: "all 0.3s ease",
-                                "&:hover": {
-                                    transform: "translateY(-8px)",
-                                    boxShadow: "0 15px 50px rgba(102, 126, 234, 0.4)",
-                                }
-                            }}
-                        >
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
-                                        textTransform: 'uppercase', 
-                                        letterSpacing: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                Solar Production
-                            </Typography>
-                                    <SolarIcon sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
+            <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, 1fr)',
+                    md: 'repeat(3, 1fr)',
+                    lg: 'repeat(5, 1fr)'
+                },
+                gap: { xs: 1.5, sm: 2, md: 2.5 },
+                mb: { xs: 2.5, sm: 3 }
+            }}>
+                {/* 1. Solar Production Card */}
+                <Fade in timeout={400}>
+                    <Card 
+                        className="stat-card"
+                        sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            borderRadius: 4,
+                            background: darkMode 
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                            borderTop: '3.5px solid #10b981',
+                            boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                            backdropFilter: 'blur(12px)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                            '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 14px 35px rgba(16, 185, 129, 0.2)',
+                                borderColor: 'rgba(16, 185, 129, 0.4)'
+                            }
+                        }}
+                    >
+                        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                <Typography variant="caption" sx={{ 
+                                    color: darkMode ? '#94a3b8' : '#64748b', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: 1.2,
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem'
+                                }}>
+                                    Solar Production
+                                </Typography>
+                                <Box sx={{ 
+                                    p: 0.9, 
+                                    borderRadius: 3, 
+                                    bgcolor: 'rgba(16, 185, 129, 0.12)',
+                                    color: '#10b981',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <SolarIcon sx={{ fontSize: 22 }} />
                                 </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                <Typography variant="h4" sx={{ 
+                                    fontWeight: 800, 
+                                    color: darkMode ? '#f8fafc' : '#0f172a',
+                                    fontSize: { xs: '1.75rem', sm: '2rem' }
                                 }}>
-                                    {isLoading ? "..." : `${total}`}
-                            </Typography>
-                                <Typography variant="h6" sx={{ 
-                                    opacity: 0.9,
-                                    fontSize: { xs: '1rem', sm: '1.25rem' }
-                                }}>
+                                    {isLoading ? "..." : total}
+                                </Typography>
+                                <Typography variant="subtitle1" sx={{ color: '#10b981', fontWeight: 700 }}>
                                     kWh
                                 </Typography>
-                                <Typography variant="body2" sx={{ 
-                                    opacity: 0.8, 
-                                    mt: 1,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                }}>
-                                Total PV Production
+                            </Box>
+                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', mb: 1.5, fontWeight: 500 }}>
+                                Total PV Generated
                             </Typography>
-                            {!isLoading && maxPvPoint && maxPvPoint.pv_power > 0 && (
+                            {!isLoading && maxPvPoint && maxPvPoint.pv_power > 0 ? (
                                 <Box sx={{ 
-                                    mt: 2, 
-                                    pt: 1.5, 
-                                    borderTop: '2px solid rgba(255, 255, 255, 0.2)',
+                                    pt: 1.2, 
+                                    borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>
+                                        ⚡ Peak Power:
+                                    </Typography>
+                                    <Chip 
+                                        size="small" 
+                                        label={`${maxPvPoint.pv_power} W (${maxPvPoint.time.slice(0, 5)})`}
+                                        sx={{ 
+                                            bgcolor: 'rgba(16, 185, 129, 0.12)', 
+                                            color: '#10b981', 
+                                            fontWeight: 700, 
+                                            fontSize: '0.72rem',
+                                            height: 22
+                                        }} 
+                                    />
+                                </Box>
+                            ) : null}
+                        </CardContent>
+                    </Card>
+                </Fade>
+
+                {/* 2. Energy Usage Card */}
+                <Fade in timeout={500}>
+                    <Card 
+                        className="stat-card"
+                        sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            borderRadius: 4,
+                            background: darkMode 
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                            borderTop: '3.5px solid #6366f1',
+                            boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                            backdropFilter: 'blur(12px)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                            '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 14px 35px rgba(99, 102, 241, 0.2)',
+                                borderColor: 'rgba(99, 102, 241, 0.4)'
+                            }
+                        }}
+                    >
+                        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                <Typography variant="caption" sx={{ 
+                                    color: darkMode ? '#94a3b8' : '#64748b', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: 1.2,
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem'
+                                }}>
+                                    Energy Usage
+                                </Typography>
+                                <Box sx={{ 
+                                    p: 0.9, 
+                                    borderRadius: 3, 
+                                    bgcolor: 'rgba(99, 102, 241, 0.12)',
+                                    color: '#6366f1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <TrendingUp sx={{ fontSize: 22 }} />
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                <Typography variant="h4" sx={{ 
+                                    fontWeight: 800, 
+                                    color: darkMode ? '#f8fafc' : '#0f172a',
+                                    fontSize: { xs: '1.75rem', sm: '2rem' }
+                                }}>
+                                    {isLoading ? "..." : loadTotal}
+                                </Typography>
+                                <Typography variant="subtitle1" sx={{ color: '#6366f1', fontWeight: 700 }}>
+                                    kWh
+                                </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', mb: 1.5, fontWeight: 500 }}>
+                                Total Load Consumption
+                            </Typography>
+                            {!isLoading && total > 0 ? (
+                                <Box sx={{ 
+                                    pt: 1.2, 
+                                    borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>
+                                        Consumption:
+                                    </Typography>
+                                    <Chip 
+                                        size="small" 
+                                        label={`${((loadTotal / total) * 100).toFixed(0)}% of Solar`}
+                                        sx={{ 
+                                            bgcolor: 'rgba(99, 102, 241, 0.12)', 
+                                            color: '#6366f1', 
+                                            fontWeight: 700, 
+                                            fontSize: '0.72rem',
+                                            height: 22
+                                        }} 
+                                    />
+                                </Box>
+                            ) : null}
+                        </CardContent>
+                    </Card>
+                </Fade>
+
+                {/* 3. Grid Contribution Card */}
+                <Fade in timeout={600}>
+                    <Card 
+                        className="stat-card"
+                        sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            borderRadius: 4,
+                            background: darkMode 
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                            borderTop: '3.5px solid #0ea5e9',
+                            boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                            backdropFilter: 'blur(12px)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                            '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 14px 35px rgba(14, 165, 233, 0.2)',
+                                borderColor: 'rgba(14, 165, 233, 0.4)'
+                            }
+                        }}
+                    >
+                        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                <Typography variant="caption" sx={{ 
+                                    color: darkMode ? '#94a3b8' : '#64748b', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: 1.2,
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem'
+                                }}>
+                                    Grid Contribution
+                                </Typography>
+                                <Box sx={{ 
+                                    p: 0.9, 
+                                    borderRadius: 3, 
+                                    bgcolor: 'rgba(14, 165, 233, 0.12)',
+                                    color: '#0ea5e9',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <BatteryChargingFull sx={{ fontSize: 22 }} />
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                <Typography variant="h4" sx={{ 
+                                    fontWeight: 800, 
+                                    color: darkMode ? '#f8fafc' : '#0f172a',
+                                    fontSize: { xs: '1.75rem', sm: '2rem' }
+                                }}>
+                                    {isLoading ? "..." : (total - loadTotal).toFixed(2)}
+                                </Typography>
+                                <Typography variant="subtitle1" sx={{ color: '#0ea5e9', fontWeight: 700 }}>
+                                    kWh
+                                </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', mb: 1.5, fontWeight: 500 }}>
+                                Net Energy Fed to Grid
+                            </Typography>
+                            <Box sx={{ 
+                                pt: 1.2, 
+                                borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                            }}>
+                                <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>
+                                    Grid Feed Status:
+                                </Typography>
+                                <Chip 
+                                    size="small" 
+                                    label={gridFeedEnabled === false ? "Feeding Off" : "Active Feed"}
+                                    sx={{ 
+                                        bgcolor: gridFeedEnabled === false ? 'rgba(245, 158, 11, 0.12)' : 'rgba(14, 165, 233, 0.12)', 
+                                        color: gridFeedEnabled === false ? '#f59e0b' : '#0ea5e9', 
+                                        fontWeight: 700, 
+                                        fontSize: '0.72rem',
+                                        height: 22
+                                    }} 
+                                />
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Fade>
+
+                {/* 4. Load Shedding Card */}
+                <Fade in timeout={700}>
+                    <Card 
+                        className="stat-card"
+                        sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            borderRadius: 4,
+                            background: darkMode 
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                            borderTop: '3.5px solid #f59e0b',
+                            boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                            backdropFilter: 'blur(12px)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                            '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 14px 35px rgba(245, 158, 11, 0.2)',
+                                borderColor: 'rgba(245, 158, 11, 0.4)'
+                            }
+                        }}
+                    >
+                        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                <Typography variant="caption" sx={{ 
+                                    color: darkMode ? '#94a3b8' : '#64748b', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: 1.2,
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem'
+                                }}>
+                                    Load Shedding
+                                </Typography>
+                                <Box sx={{ 
+                                    p: 0.9, 
+                                    borderRadius: 3, 
+                                    bgcolor: 'rgba(245, 158, 11, 0.12)',
+                                    color: '#f59e0b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <PowerOff sx={{ fontSize: 22 }} />
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                <Typography variant="h4" sx={{ 
+                                    fontWeight: 800, 
+                                    color: darkMode ? '#f8fafc' : '#0f172a',
+                                    fontSize: { xs: '1.4rem', sm: '1.65rem' }
+                                }}>
+                                    {isLoading ? "..." : formatHours(loadSheddingHours)}
+                                </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', mb: 1.5, fontWeight: 500 }}>
+                                Battery / Solar Runtime
+                            </Typography>
+                            <Box sx={{ 
+                                pt: 1.2, 
+                                borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                            }}>
+                                <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>
+                                    Grid Outage:
+                                </Typography>
+                                <Chip 
+                                    size="small" 
+                                    label="Power Cut Duration"
+                                    sx={{ 
+                                        bgcolor: 'rgba(245, 158, 11, 0.12)', 
+                                        color: '#f59e0b', 
+                                        fontWeight: 700, 
+                                        fontSize: '0.72rem',
+                                        height: 22
+                                    }} 
+                                />
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Fade>
+
+                {/* 5. System Off Duration Card */}
+                <Fade in timeout={800}>
+                    <Card 
+                        className="stat-card"
+                        sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            borderRadius: 4,
+                            background: darkMode 
+                                ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                            borderTop: '3.5px solid #ef4444',
+                            boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                            backdropFilter: 'blur(12px)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                            '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: '0 14px 35px rgba(239, 68, 68, 0.2)',
+                                borderColor: 'rgba(239, 68, 68, 0.4)'
+                            }
+                        }}
+                    >
+                        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                <Typography variant="caption" sx={{ 
+                                    color: darkMode ? '#94a3b8' : '#64748b', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: 1.2,
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem'
+                                }}>
+                                    System Off Duration
+                                </Typography>
+                                <Box sx={{ 
+                                    p: 0.9, 
+                                    borderRadius: 3, 
+                                    bgcolor: 'rgba(239, 68, 68, 0.12)',
+                                    color: '#ef4444',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <PowerOff sx={{ fontSize: 22 }} />
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                <Typography variant="h4" sx={{ 
+                                    fontWeight: 800, 
+                                    color: darkMode ? '#f8fafc' : '#0f172a',
+                                    fontSize: { xs: '1.4rem', sm: '1.65rem' }
+                                }}>
+                                    {isLoading ? "..." : formatHours(parseFloat(cutOffHours) + parseFloat(missingDataHours))}
+                                </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', mb: 1.5, fontWeight: 500 }}>
+                                Total System Downtime
+                            </Typography>
+                            {!isLoading ? (
+                                <Box sx={{ 
+                                    pt: 1.2, 
+                                    borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}`,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     gap: 0.5
                                 }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography variant="body2" sx={{ opacity: 0.85, fontWeight: 500, fontSize: { xs: '0.75rem', sm: '0.8rem' } }}>
-                                            ⚡ Peak Power:
+                                        <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#64748b', fontSize: '0.7rem' }}>
+                                            Standby:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-                                            {maxPvPoint.pv_power} W
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: darkMode ? '#cbd5e1' : '#334155', fontSize: '0.7rem' }}>
+                                            {formatHours(cutOffHours)}
                                         </Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography variant="body2" sx={{ opacity: 0.85, fontWeight: 500, fontSize: { xs: '0.75rem', sm: '0.8rem' } }}>
-                                            ⏰ Peak Time:
+                                        <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#64748b', fontSize: '0.7rem' }}>
+                                            Offline Gaps:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-                                            {maxPvPoint.time.slice(0, 5)}
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: missingDataHours > 0 ? '#ef4444' : 'inherit', fontSize: '0.7rem' }}>
+                                            {formatHours(missingDataHours)}
                                         </Typography>
                                     </Box>
                                 </Box>
-                            )}
+                            ) : null}
                         </CardContent>
                     </Card>
-                    </Fade>
-                </Grid>
-                <Grid item xs={12} sm={6} md={6} lg={3} sx={{ display: 'flex' }}>
-                    <Fade in timeout={700} style={{ width: '100%' }}>
-                        <Card 
-                            className="stat-card"
-                            sx={{
-                                width: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-                                color: "white",
-                                borderRadius: 4,
-                                boxShadow: "0 10px 40px rgba(240, 147, 251, 0.3)",
-                                transition: "all 0.3s ease",
-                                "&:hover": {
-                                    transform: "translateY(-8px)",
-                                    boxShadow: "0 15px 50px rgba(240, 147, 251, 0.4)",
-                                }
-                            }}
-                        >
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                    opacity: 0.9, 
-                                    textTransform: 'uppercase', 
-                                    letterSpacing: 1,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                }}>
-                                Energy Usage
-                            </Typography>
-                                    <TrendingUp sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
-                                </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                }}>
-                                    {isLoading ? "..." : `${loadTotal}`}
-                            </Typography>
-                                <Typography variant="h6" sx={{ 
-                                    opacity: 0.9,
-                                    fontSize: { xs: '1rem', sm: '1.25rem' }
-                                }}>
-                                    kWh
-                                </Typography>
-                                <Typography variant="body2" sx={{ 
-                                    opacity: 0.8, 
-                                    mt: 1,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                }}>
-                                Total Load Consumption
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                    </Fade>
-                </Grid>
-                <Grid item xs={12} sm={6} md={6} lg={3} sx={{ display: 'flex' }}>
-                    <Fade in timeout={900} style={{ width: '100%' }}>
-                        <Card 
-                            className="stat-card"
-                            sx={{
-                                width: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-                                color: "white",
-                                borderRadius: 4,
-                                boxShadow: "0 10px 40px rgba(79, 172, 254, 0.3)",
-                                transition: "all 0.3s ease",
-                                "&:hover": {
-                                    transform: "translateY(-8px)",
-                                    boxShadow: "0 15px 50px rgba(79, 172, 254, 0.4)",
-                                }
-                            }}
-                        >
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
-                                        textTransform: 'uppercase', 
-                                        letterSpacing: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        Grid Contribution
-                            </Typography>
-                                    <BatteryChargingFull sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
-                                </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                }}>
-                                    {isLoading ? "..." : `${(total - loadTotal).toFixed(2)}`}
-                            </Typography>
-                                <Typography variant="h6" sx={{ 
-                                    opacity: 0.9,
-                                    fontSize: { xs: '1rem', sm: '1.25rem' }
-                                }}>
-                                    kWh
-                                </Typography>
-                                <Typography variant="body2" sx={{ 
-                                    opacity: 0.8, 
-                                    mt: 1,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                }}>
-                                    Energy Fed to Grid
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                    </Fade>
-                </Grid>
-                <Grid item xs={12} sm={6} md={6} lg={3} sx={{ display: 'flex' }}>
-                    <Fade in timeout={1100} style={{ width: '100%' }}>
-                        <Card 
-                            className="stat-card"
-                            sx={{
-                                width: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                background: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-                                color: "white",
-                                borderRadius: 4,
-                                boxShadow: "0 10px 40px rgba(250, 112, 154, 0.3)",
-                                transition: "all 0.3s ease",
-                                "&:hover": {
-                                    transform: "translateY(-8px)",
-                                    boxShadow: "0 15px 50px rgba(250, 112, 154, 0.4)",
-                                }
-                            }}
-                        >
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
-                                        textTransform: 'uppercase', 
-                                        letterSpacing: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        Load Shedding
-                            </Typography>
-                                    <PowerOff sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
-                                </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                }}>
-                                {isLoading ? "..." : formatHours(loadSheddingHours)}
-                            </Typography>
-                                <Typography variant="body2" sx={{ 
-                                    opacity: 0.8, 
-                                    mt: 1,
-                                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                }}>
-                                    Battery/Solar Runtime
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                    </Fade>
-                </Grid>
-                <Grid item xs={12} sm={12} md={6} sx={{ display: 'flex' }}>
-                    <Fade in timeout={1300} style={{ width: '100%' }}>
-                        <Card 
-                            className="stat-card"
-                            sx={{
-                                width: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                background: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-                                color: "#333",
-                                borderRadius: 4,
-                                boxShadow: "0 10px 40px rgba(168, 237, 234, 0.3)",
-                                transition: "all 0.3s ease",
-                                "&:hover": {
-                                    transform: "translateY(-8px)",
-                                    boxShadow: "0 15px 50px rgba(168, 237, 234, 0.4)",
-                                }
-                            }}
-                        >
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
-                                        textTransform: 'uppercase', 
-                                        letterSpacing: 1, 
-                                        fontWeight: 600,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                        System Off Duration
-                            </Typography>
-                                    <PowerOff sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.7 }} />
-                                </Box>
-                                <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h3" sx={{ 
-                                        fontWeight: 700, 
-                                        mb: 0.5,
-                                        fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                    }}>
-                                        {isLoading ? "..." : formatHours(parseFloat(cutOffHours) + parseFloat(missingDataHours))}
-                            </Typography>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.8, 
-                                        mt: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                                    }}>
-                                Total time system remained off
-                            </Typography>
-                                </Box>
-                                {!isLoading && (
-                                    <Box sx={{ 
-                                        mt: 2, 
-                                        pt: 2, 
-                                        borderTop: '2px solid rgba(0,0,0,0.1)',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 1
-                                    }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
-                                                📊 Standby Mode:
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                                {formatHours(cutOffHours)}
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
-                                                ⚠️ Offline / Missing Data:
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ fontWeight: 700, color: missingDataHours > 0 ? '#f44336' : 'inherit' }}>
-                                                {formatHours(missingDataHours)}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                )}
-                        </CardContent>
-                    </Card>
-                    </Fade>
-                </Grid>
-
-            </Grid>
+                </Fade>
+            </Box>
             {isError && (
                 <Typography variant="body2" color="error" sx={{ mb: 2, p: 2, background: 'rgba(244, 67, 54, 0.1)', borderRadius: 2 }}>
                     ⚠️ Error: {isError}
@@ -1187,29 +1342,214 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                         )}
                     </Box>
 
+                    {/* Live Telemetry Inspection HUD Bar (Unobstructed Mobile & Desktop HUD) */}
+                    <Box 
+                        sx={{ 
+                            mb: 2.5,
+                            p: { xs: 1.5, sm: 2 },
+                            borderRadius: 3,
+                            background: scrubbedPoint 
+                                ? (darkMode ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)')
+                                : (darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(241, 245, 249, 0.8)'),
+                            border: scrubbedPoint
+                                ? '1.5px solid rgba(16, 185, 129, 0.45)'
+                                : `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.8)'}`,
+                            transition: 'all 0.25s ease',
+                            boxShadow: scrubbedPoint ? '0 4px 20px rgba(16, 185, 129, 0.12)' : 'none'
+                        }}
+                    >
+                        {scrubbedPoint ? (
+                            <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{ 
+                                            width: 8, 
+                                            height: 8, 
+                                            borderRadius: '50%', 
+                                            bgcolor: '#10b981',
+                                            boxShadow: '0 0 10px #10b981',
+                                            animation: 'pulseGlow 1.5s infinite ease-in-out'
+                                        }} />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: 0.5, fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+                                            INSPECTING: <span style={{ color: '#10b981', fontWeight: 800 }}>{scrubbedPoint.time}</span>
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Chip 
+                                            size="small" 
+                                            label={
+                                                scrubbedPoint.mode === "Line Mode" ? "⚡ Connected (Grid)" :
+                                                scrubbedPoint.mode === "Battery Mode" ? "🔋 Battery (Grid Cut)" :
+                                                "⏸️ System Off"
+                                            }
+                                            sx={{ 
+                                                fontWeight: 700,
+                                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                                bgcolor: scrubbedPoint.mode === "Line Mode" ? 'rgba(16, 185, 129, 0.15)' :
+                                                         scrubbedPoint.mode === "Battery Mode" ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                color: scrubbedPoint.mode === "Line Mode" ? '#10b981' :
+                                                       scrubbedPoint.mode === "Battery Mode" ? '#f59e0b' : '#ef4444',
+                                                border: `1px solid ${scrubbedPoint.mode === "Line Mode" ? 'rgba(16, 185, 129, 0.4)' : scrubbedPoint.mode === "Battery Mode" ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                                            }}
+                                        />
+                                        <IconButton 
+                                            size="small" 
+                                            onClick={() => setScrubbedPoint(null)}
+                                            sx={{ 
+                                                p: 0.5, 
+                                                bgcolor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                                                '&:hover': { bgcolor: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }
+                                            }}
+                                            title="Clear inspection point"
+                                        >
+                                            <Close sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                    </Box>
+                                </Box>
+                                
+                                <Grid container spacing={1.5}>
+                                    <Grid item xs={6} sm={4}>
+                                        <Box sx={{ 
+                                            p: { xs: 1, sm: 1.5 }, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                                            border: '1px solid rgba(16, 185, 129, 0.25)'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                ☀️ Solar PV Power
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                                                {scrubbedPoint.pv_power?.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6} sm={4}>
+                                        <Box sx={{ 
+                                            p: { xs: 1, sm: 1.5 }, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: darkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.08)',
+                                            border: '1px solid rgba(99, 102, 241, 0.25)'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                ⚡ Home Load Power
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#6366f1', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                                                {scrubbedPoint.load_power?.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4}>
+                                        <Box sx={{ 
+                                            p: { xs: 1, sm: 1.5 }, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: scrubbedPoint.pv_power >= scrubbedPoint.load_power 
+                                                ? (darkMode ? 'rgba(14, 165, 233, 0.1)' : 'rgba(14, 165, 233, 0.08)')
+                                                : (darkMode ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.08)'),
+                                            border: `1px solid ${scrubbedPoint.pv_power >= scrubbedPoint.load_power ? 'rgba(14, 165, 233, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`
+                                        }}>
+                                            <Typography variant="caption" sx={{ 
+                                                color: scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '#0ea5e9' : '#f59e0b', 
+                                                fontWeight: 700, 
+                                                display: 'block', 
+                                                mb: 0.2,
+                                                fontSize: { xs: '0.68rem', sm: '0.75rem' }
+                                            }}>
+                                                {scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '🔄 Net Fed to Grid' : '🔌 Net Drawn from Grid'}
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ 
+                                                fontWeight: 800, 
+                                                color: scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '#0ea5e9' : '#f59e0b',
+                                                fontSize: { xs: '1.05rem', sm: '1.25rem' } 
+                                            }}>
+                                                {scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '+' : '-'}
+                                                {Math.abs(scrubbedPoint.pv_power - scrubbedPoint.load_power).toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, color: darkMode ? '#cbd5e1' : '#475569', display: 'flex', alignItems: 'center', gap: 0.8, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                                        <Speed sx={{ fontSize: 18, color: '#10b981' }} />
+                                        Live Telemetry:
+                                    </Typography>
+                                    {maxPvPoint && maxPvPoint.pv_power > 0 && (
+                                        <Chip 
+                                            size="small"
+                                            icon={<SolarIcon sx={{ fontSize: '14px !important', color: '#f59e0b !important' }} />}
+                                            label={`Peak: ${maxPvPoint.pv_power} W (${maxPvPoint.time.slice(0, 5)})`}
+                                            sx={{ 
+                                                bgcolor: darkMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                                                color: darkMode ? '#fbbf24' : '#d97706',
+                                                fontWeight: 700,
+                                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                fontSize: '0.74rem'
+                                            }}
+                                        />
+                                    )}
+                                    {data.length > 0 && (
+                                        <Chip 
+                                            size="small"
+                                            icon={<ElectricBolt sx={{ fontSize: '14px !important', color: '#10b981 !important' }} />}
+                                            label={`Latest: ${data[data.length - 1].pv_power} W (${data[data.length - 1].time.slice(0, 5)})`}
+                                            sx={{ 
+                                                bgcolor: darkMode ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+                                                color: '#10b981',
+                                                fontWeight: 700,
+                                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                                fontSize: '0.74rem'
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                    <TouchApp sx={{ fontSize: 16, color: darkMode ? '#94a3b8' : '#64748b' }} />
+                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500, fontStyle: 'italic' }}>
+                                        {isMobile ? 'Drag finger across graph to inspect any time' : 'Hover over graph to inspect live values'}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        )}
+                    </Box>
+
                     {isLoading ? (
                         <Box sx={{ display: "flex", flexDirection: 'column', justifyContent: "center", alignItems: "center", height: 400 }}>
                             <Refresh sx={{ 
                                 animation: "spin 1s linear infinite", 
                                 fontSize: 60, 
-                                color: "#667eea",
+                                color: "#10b981",
                                 mb: 2
                             }} />
-                            <Typography variant="h6" sx={{ color: '#667eea', fontWeight: 500 }}>
+                            <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 600 }}>
                                 Loading data...
                             </Typography>
                         </Box>
                     ) : (
-                        <ResponsiveContainer width="100%" height={450} minHeight={300}>
-                            <AreaChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 20 }}>
+                        <ResponsiveContainer width="100%" height={isMobile ? 330 : 450} minHeight={280}>
+                            <AreaChart 
+                                data={data} 
+                                margin={{ top: 20, right: 10, left: -15, bottom: 20 }}
+                                onMouseMove={(state) => {
+                                    if (state && state.activePayload && state.activePayload.length) {
+                                        setScrubbedPoint(state.activePayload[0].payload);
+                                    }
+                                }}
+                                onTouchMove={(state) => {
+                                    if (state && state.activePayload && state.activePayload.length) {
+                                        setScrubbedPoint(state.activePayload[0].payload);
+                                    }
+                                }}
+                            >
                                 <defs>
                                     <linearGradient id="pvColor" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.9} />
-                                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.1} />
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.85} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
                                     </linearGradient>
                                     <linearGradient id="loadColor" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.9} />
-                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0.1} />
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.85} />
+                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
                                     </linearGradient>
                                 </defs>
 
@@ -1229,8 +1569,8 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                         key={`gap-${index}`}
                                         x1={gap.start}
                                         x2={gap.end}
-                                        fill="rgba(255, 0, 0, 0.12)"
-                                        stroke="rgba(255, 0, 0, 0.5)"
+                                        fill="rgba(239, 68, 68, 0.12)"
+                                        stroke="rgba(239, 68, 68, 0.5)"
                                         strokeWidth={1.5}
                                         strokeDasharray="4 4"
                                         ifOverflow="visible"
@@ -1246,31 +1586,34 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                     />
                                 ))}
 
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" opacity={0.5} />
+                                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.06)"} />
                                 <XAxis 
                                     dataKey="time" 
-                                    tick={{ fill: '#666', fontSize: 12 }}
-                                    stroke="#999"
+                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: isMobile ? 10 : 12 }}
+                                    stroke={darkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)"}
                                 />
                                 <YAxis 
                                     tickFormatter={(value) => `${value / 1000}k`}
-                                    tick={{ fill: '#666', fontSize: 12 }}
-                                    stroke="#999"
+                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: isMobile ? 10 : 12 }}
+                                    stroke={darkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)"}
                                 />
-                                <RechartsTooltip content={<CustomTooltip />} />
+                                <RechartsTooltip 
+                                    content={<CustomTooltip />} 
+                                    cursor={{ stroke: darkMode ? '#818cf8' : '#6366f1', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                                />
                                 <Legend 
                                     wrapperStyle={{ 
                                         paddingTop: '20px',
-                                        fontSize: '14px',
-                                        fontWeight: 500
+                                        fontSize: '13px',
+                                        fontWeight: 600
                                     }}
                                 />
 
                                 <Area
                                     type="monotone"
                                     dataKey="pv_power"
-                                    stroke="#82ca9d"
-                                    strokeWidth={3}
+                                    stroke="#10b981"
+                                    strokeWidth={2.5}
                                     fillOpacity={1}
                                     fill="url(#pvColor)"
                                     name="PV Power (W)"
@@ -1278,8 +1621,8 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                 <Area
                                     type="monotone"
                                     dataKey="load_power"
-                                    stroke="#8884d8"
-                                    strokeWidth={3}
+                                    stroke="#6366f1"
+                                    strokeWidth={2.5}
                                     fillOpacity={1}
                                     fill="url(#loadColor)"
                                     name="Load Power (W)"
@@ -1291,7 +1634,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                         x={maxPvPoint.time}
                                         y={maxPvPoint.pv_power}
                                         r={isMobile ? 5 : 6}
-                                        fill="#ffb300"
+                                        fill="#f59e0b"
                                         stroke="#ffffff"
                                         strokeWidth={2.5}
                                         ifOverflow="visible"

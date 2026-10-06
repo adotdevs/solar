@@ -320,131 +320,206 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
 
     return (
         <Box>
-            <Grid container spacing={{ xs: 2, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
+            <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
                 <Grid item xs={12} sm={6} md={4}>
-                    <Fade in timeout={500}>
-                        <Card sx={{
-                            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                            color: "white",
-                            borderRadius: 4,
-                            boxShadow: "0 10px 40px rgba(102, 126, 234, 0.3)",
-                            transition: "all 0.3s ease",
-                            "&:hover": {
-                                transform: "translateY(-8px)",
-                                boxShadow: "0 15px 50px rgba(102, 126, 234, 0.4)",
-                            }
-                        }}>
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
+                    <Fade in timeout={400}>
+                        <Card 
+                            className="stat-card"
+                            sx={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                borderRadius: 4,
+                                background: darkMode 
+                                    ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                    : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                                border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                                borderTop: '3.5px solid #10b981',
+                                boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                                backdropFilter: 'blur(12px)',
+                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 14px 35px rgba(16, 185, 129, 0.2)',
+                                    borderColor: 'rgba(16, 185, 129, 0.4)'
+                                }
+                            }}
+                        >
+                            <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                    <Typography variant="caption" sx={{ 
+                                        color: darkMode ? '#94a3b8' : '#64748b', 
                                         textTransform: 'uppercase', 
-                                        letterSpacing: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                        letterSpacing: 1.2,
+                                        fontWeight: 700,
+                                        fontSize: '0.72rem'
                                     }}>
                                         Total Production
                                     </Typography>
-                                    <SolarIcon sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
+                                    <Box sx={{ 
+                                        p: 0.9, 
+                                        borderRadius: 3, 
+                                        bgcolor: 'rgba(16, 185, 129, 0.12)',
+                                        color: '#10b981',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <SolarIcon sx={{ fontSize: 22 }} />
+                                    </Box>
                                 </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                }}>
-                                    {totals.production}
+                                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                    <Typography variant="h4" sx={{ 
+                                        fontWeight: 800, 
+                                        color: darkMode ? '#f8fafc' : '#0f172a',
+                                        fontSize: { xs: '1.75rem', sm: '2.2rem' }
+                                    }}>
+                                        {totals.production}
+                                    </Typography>
+                                    <Typography variant="subtitle1" sx={{ color: '#10b981', fontWeight: 700 }}>
+                                        kWh
+                                    </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', fontWeight: 500 }}>
+                                    Solar Generated in Period
                                 </Typography>
-                                <Typography variant="h6" sx={{ 
-                                    opacity: 0.9,
-                                    fontSize: { xs: '1rem', sm: '1.25rem' }
-                                }}>
-                                    kWh
-                            </Typography>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
                     </Fade>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
-                    <Fade in timeout={700}>
-                        <Card sx={{
-                            background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-                            color: "white",
-                            borderRadius: 4,
-                            boxShadow: "0 10px 40px rgba(240, 147, 251, 0.3)",
-                            transition: "all 0.3s ease",
-                            "&:hover": {
-                                transform: "translateY(-8px)",
-                                boxShadow: "0 15px 50px rgba(240, 147, 251, 0.4)",
-                            }
-                        }}>
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
+                    <Fade in timeout={600}>
+                        <Card 
+                            className="stat-card"
+                            sx={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                borderRadius: 4,
+                                background: darkMode 
+                                    ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                    : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                                border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                                borderTop: '3.5px solid #6366f1',
+                                boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                                backdropFilter: 'blur(12px)',
+                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 14px 35px rgba(99, 102, 241, 0.2)',
+                                    borderColor: 'rgba(99, 102, 241, 0.4)'
+                                }
+                            }}
+                        >
+                            <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                    <Typography variant="caption" sx={{ 
+                                        color: darkMode ? '#94a3b8' : '#64748b', 
                                         textTransform: 'uppercase', 
-                                        letterSpacing: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                        letterSpacing: 1.2,
+                                        fontWeight: 700,
+                                        fontSize: '0.72rem'
                                     }}>
                                         Total Load
                                     </Typography>
-                                    <TrendingUp sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
+                                    <Box sx={{ 
+                                        p: 0.9, 
+                                        borderRadius: 3, 
+                                        bgcolor: 'rgba(99, 102, 241, 0.12)',
+                                        color: '#6366f1',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <TrendingUp sx={{ fontSize: 22 }} />
+                                    </Box>
                                 </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                }}>
-                                    {totals.load}
+                                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                    <Typography variant="h4" sx={{ 
+                                        fontWeight: 800, 
+                                        color: darkMode ? '#f8fafc' : '#0f172a',
+                                        fontSize: { xs: '1.75rem', sm: '2.2rem' }
+                                    }}>
+                                        {totals.load}
+                                    </Typography>
+                                    <Typography variant="subtitle1" sx={{ color: '#6366f1', fontWeight: 700 }}>
+                                        kWh
+                                    </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', fontWeight: 500 }}>
+                                    Total Load Consumed
                                 </Typography>
-                                <Typography variant="h6" sx={{ 
-                                    opacity: 0.9,
-                                    fontSize: { xs: '1rem', sm: '1.25rem' }
-                                }}>
-                                    kWh
-                            </Typography>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
                     </Fade>
                 </Grid>
                 <Grid item xs={12} sm={12} md={4}>
-                    <Fade in timeout={900}>
-                        <Card sx={{
-                            background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-                            color: "white",
-                            borderRadius: 4,
-                            boxShadow: "0 10px 40px rgba(79, 172, 254, 0.3)",
-                            transition: "all 0.3s ease",
-                            "&:hover": {
-                                transform: "translateY(-8px)",
-                                boxShadow: "0 15px 50px rgba(79, 172, 254, 0.4)",
-                            }
-                        }}>
-                            <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="body2" sx={{ 
-                                        opacity: 0.9, 
+                    <Fade in timeout={800}>
+                        <Card 
+                            className="stat-card"
+                            sx={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                borderRadius: 4,
+                                background: darkMode 
+                                    ? 'linear-gradient(145deg, rgba(17, 24, 39, 0.9) 0%, rgba(30, 41, 59, 0.75) 100%)' 
+                                    : 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                                border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.9)'}`,
+                                borderTop: '3.5px solid #0ea5e9',
+                                boxShadow: darkMode ? '0 8px 30px rgba(0, 0, 0, 0.3)' : '0 8px 30px rgba(0, 0, 0, 0.04)',
+                                backdropFilter: 'blur(12px)',
+                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: '0 14px 35px rgba(14, 165, 233, 0.2)',
+                                    borderColor: 'rgba(14, 165, 233, 0.4)'
+                                }
+                            }}
+                        >
+                            <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                                    <Typography variant="caption" sx={{ 
+                                        color: darkMode ? '#94a3b8' : '#64748b', 
                                         textTransform: 'uppercase', 
-                                        letterSpacing: 1,
-                                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                                        letterSpacing: 1.2,
+                                        fontWeight: 700,
+                                        fontSize: '0.72rem'
                                     }}>
                                         Fed to Grid
-                            </Typography>
-                                    <BatteryChargingFull sx={{ fontSize: { xs: 28, sm: 32 }, opacity: 0.8 }} />
+                                    </Typography>
+                                    <Box sx={{ 
+                                        p: 0.9, 
+                                        borderRadius: 3, 
+                                        bgcolor: 'rgba(14, 165, 233, 0.12)',
+                                        color: '#0ea5e9',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <BatteryChargingFull sx={{ fontSize: 22 }} />
+                                    </Box>
                                 </Box>
-                                <Typography variant="h3" sx={{ 
-                                    fontWeight: 700, 
-                                    mb: 1,
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' }
-                                }}>
-                                    {totals.feeded}
+                                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mb: 0.5 }}>
+                                    <Typography variant="h4" sx={{ 
+                                        fontWeight: 800, 
+                                        color: darkMode ? '#f8fafc' : '#0f172a',
+                                        fontSize: { xs: '1.75rem', sm: '2.2rem' }
+                                    }}>
+                                        {totals.feeded}
+                                    </Typography>
+                                    <Typography variant="subtitle1" sx={{ color: '#0ea5e9', fontWeight: 700 }}>
+                                        kWh
+                                    </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', display: 'block', fontWeight: 500 }}>
+                                    Net Feed-in Solar Surplus
                                 </Typography>
-                                <Typography variant="h6" sx={{ 
-                                    opacity: 0.9,
-                                    fontSize: { xs: '1rem', sm: '1.25rem' }
-                                }}>
-                                    kWh
-                            </Typography>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
                     </Fade>
                 </Grid>
             </Grid>
@@ -612,39 +687,41 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                 margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="prodColor" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.9} />
-                                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.1} />
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.85} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
                                     </linearGradient>
                                     <linearGradient id="loadColor" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.9} />
-                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0.1} />
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.85} />
+                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" opacity={0.5} />
+                                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.06)"} />
                                 <XAxis 
                                     dataKey="date" 
-                                    tick={{ fill: '#666', fontSize: 12 }}
-                                    stroke="#999"
+                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: 12 }}
+                                    stroke={darkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)"}
                                 />
                                 <YAxis 
                                     width={40} 
                                     tickFormatter={(value) => `${value}k`}
-                                    tick={{ fill: '#666', fontSize: 12 }}
-                                    stroke="#999"
+                                    tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: 12 }}
+                                    stroke={darkMode ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)"}
                                 />
-                                <RechartsTooltip />
+                                <RechartsTooltip 
+                                    cursor={{ stroke: darkMode ? '#818cf8' : '#6366f1', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                                />
                                 <Legend 
                                     wrapperStyle={{ 
                                         paddingTop: '20px',
-                                        fontSize: '14px',
-                                        fontWeight: 500
+                                        fontSize: '13px',
+                                        fontWeight: 600
                                     }}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="production"
-                                    stroke="#82ca9d"
-                                    strokeWidth={3}
+                                    stroke="#10b981"
+                                    strokeWidth={2.5}
                                     fillOpacity={1}
                                     fill="url(#prodColor)"
                                     name="Production (kWh)"
@@ -652,8 +729,8 @@ const MonthlyStats = ({ darkMode, themeColor, themeColors }) => {
                                 <Area
                                     type="monotone"
                                     dataKey="load"
-                                    stroke="#8884d8"
-                                    strokeWidth={3}
+                                    stroke="#6366f1"
+                                    strokeWidth={2.5}
                                     fillOpacity={1}
                                     fill="url(#loadColor)"
                                     name="Load (kWh)"
