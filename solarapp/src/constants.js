@@ -6,7 +6,7 @@ const API_MODE = 'production'; // Change to 'local' to use localhost
 
 const API_URLS = {
     local: 'http://localhost:8000', // Your local development server
-    production: 'https://analytixcoin.onrender.com'
+    production: 'https://solar-tgd8.onrender.com'
 };
 
 // Export the base URL based on current mode
