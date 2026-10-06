@@ -26,7 +26,9 @@ import {
     IconButton,
     Button,
     Typography,
-    Alert
+    Alert,
+    useTheme,
+    useMediaQuery
 } from "@mui/material";
 import {
     SolarPower as SolarIcon,
@@ -49,6 +51,9 @@ import { toast } from "react-toastify";
 import { API_ENDPOINTS, CONFIG } from "../constants";
 
 const DailyStats = ({ darkMode, themeColor, themeColors }) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
     const [data, setData] = useState([]);
     const [total, setTotal] = useState(0);
     const [loadTotal, setLoadTotal] = useState(0);
@@ -141,51 +146,52 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                     if (point.mode === "Battery Mode") {
                         batteryHours += intervalHours;
                     }
-                    if (point.mode === "Standby Mode") {
+                    const isOff = point.mode === "Standby Mode" || 
+                                  point.mode === "Fault Mode" || 
+                                  point.mode === "Shutdown Mode" || 
+                                  point.mode === "Power Off" || 
+                                  point.mode === "Off";
+                    if (isOff) {
                         cutOffHours += intervalHours;
                     }
                 });
 
-                // Calculate missing data
+                // Calculate missing data gaps and durations
+                const gaps = [];
                 const today = getTodayLocal();
                 const isToday = date === today;
-                
-                let expectedDataPoints;
-                if (isToday) {
-                    const now = new Date();
-                    const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
-                    expectedDataPoints = Math.floor(minutesSinceMidnight / CONFIG.DATA_INTERVAL_MINUTES);
-                } else {
-                    expectedDataPoints = CONFIG.EXPECTED_DATA_POINTS_PER_DAY;
-                }
-                
-                const actualDataPoints = graphData.length;
-                const missingDataPoints = Math.max(0, expectedDataPoints - actualDataPoints);
-                const missingHours = (missingDataPoints * CONFIG.DATA_INTERVAL_MINUTES) / 60;
 
-                // Calculate missing data gaps
-                const gaps = [];
-                if (graphData.length > 1) {
+                if (graphData && graphData.length > 1) {
+                    const timeToSeconds = (t) => {
+                        if (!t) return 0;
+                        const [h, m, s = 0] = t.split(':').map(Number);
+                        return (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
+                    };
+
                     for (let i = 1; i < graphData.length; i++) {
                         const prevTime = graphData[i - 1].time;
                         const currTime = graphData[i].time;
                         
-                        const [prevHour, prevMin] = prevTime.split(':').map(Number);
-                        const [currHour, currMin] = currTime.split(':').map(Number);
+                        const prevSeconds = timeToSeconds(prevTime);
+                        const currSeconds = timeToSeconds(currTime);
+                        const diffSeconds = currSeconds - prevSeconds;
+                        const diffMinutes = diffSeconds / 60;
                         
-                        const prevMinutes = prevHour * 60 + prevMin;
-                        const currMinutes = currHour * 60 + currMin;
-                        const timeDiff = currMinutes - prevMinutes;
-                        
-                        if (timeDiff > 6) {
+                        // Normal interval is 5 min (300s). Jitter up to 6.5 min (390s) is normal.
+                        // Any gap > 6.5 minutes indicates missing data / downtime.
+                        if (diffMinutes > 6.5) {
                             gaps.push({
                                 start: prevTime,
                                 end: currTime,
-                                duration: timeDiff - 5
+                                duration: Math.round(diffMinutes)
                             });
                         }
                     }
                 }
+
+                // Total offline duration calculated from all actual gaps
+                const totalGapMinutes = gaps.reduce((sum, g) => sum + g.duration, 0);
+                const missingHours = totalGapMinutes / 60;
 
                 setData(graphData);
                 setTotal((pvSum / 1000).toFixed(2));
@@ -317,6 +323,25 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                     currentData.mode === "Standby Mode" ? "⏸️ System off" : "❓ Out of range"}
                     </Typography>
                     </Box>
+                    {(() => {
+                        const borderingGap = missingDataGaps.find(g => g.start === label || g.end === label);
+                        if (!borderingGap) return null;
+                        return (
+                            <Box sx={{ 
+                                mt: 1.5, 
+                                pt: 1, 
+                                borderTop: '1px dashed rgba(244, 67, 54, 0.4)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.8
+                            }}>
+                                <PowerOff sx={{ fontSize: 15, color: '#f44336' }} />
+                                <Typography variant="caption" sx={{ color: '#d32f2f', fontWeight: 600 }}>
+                                    {borderingGap.start === label ? 'System went offline after this' : 'System recovered here'} ({formatMissingDuration(borderingGap.duration)})
+                                </Typography>
+                            </Box>
+                        );
+                    })()}
                 </Paper>
             );
         }
@@ -357,21 +382,85 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
     };
     
     const formatHours = (decimalHours) => {
-        const hrs = Math.floor(decimalHours);
-        const mins = Math.round((decimalHours - hrs) * 60);
+        const totalMinutes = Math.round((Number(decimalHours) || 0) * 60);
+        const hrs = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
         return `${hrs} hr ${mins} min`;
     };
     
     const formatMissingDuration = (minutes) => {
-        if (minutes >= 60) {
-            const hours = Math.floor(minutes / 60);
-            const mins = Math.round(minutes % 60);
+        const totalMins = Math.round(Number(minutes) || 0);
+        if (totalMins >= 60) {
+            const hours = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
             if (mins === 0) {
                 return `${hours} hr`;
             }
             return `${hours} hr ${mins} min`;
         }
-        return `${Math.floor(minutes)} min`;
+        return `${totalMins} min`;
+    };
+
+    const formatCompactDuration = (minutes) => {
+        const totalMins = Math.round(Number(minutes) || 0);
+        if (totalMins >= 60) {
+            const hours = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+        }
+        return `${totalMins}m`;
+    };
+
+    const CustomGapLabel = (props) => {
+        const { viewBox, gap, index, isMobile, darkMode } = props;
+        if (!viewBox) return null;
+        
+        const x = viewBox.x ?? 0;
+        const y = viewBox.y ?? 0;
+        const width = viewBox.width ?? 0;
+        
+        if (isNaN(x) || isNaN(y)) return null;
+
+        const centerX = x + Math.max(width, 0) / 2;
+        
+        // Stagger vertically across 3 tiers to avoid overlapping adjacent labels on small screens
+        const tier = index % 3;
+        const badgeHeight = isMobile ? 18 : 20;
+        const badgeY = y + 8 + (tier * (badgeHeight + 5));
+        
+        const text = isMobile 
+            ? `⚠️ ${formatCompactDuration(gap.duration)}` 
+            : `⚠️ ${formatMissingDuration(gap.duration)} off`;
+            
+        const charWidth = isMobile ? 6.2 : 7.2;
+        const badgeWidth = Math.max(text.length * charWidth + 12, isMobile ? 42 : 58);
+        
+        return (
+            <g style={{ pointerEvents: 'none' }}>
+                <rect
+                    x={centerX - badgeWidth / 2}
+                    y={badgeY}
+                    width={badgeWidth}
+                    height={badgeHeight}
+                    rx={4}
+                    ry={4}
+                    fill={darkMode ? "rgba(35, 35, 35, 0.95)" : "rgba(255, 255, 255, 0.95)"}
+                    stroke="#f44336"
+                    strokeWidth={1.2}
+                />
+                <text
+                    x={centerX}
+                    y={badgeY + (badgeHeight / 2) + (isMobile ? 3 : 4)}
+                    textAnchor="middle"
+                    fill={darkMode ? "#ff8a80" : "#d32f2f"}
+                    fontSize={isMobile ? 9.5 : 11}
+                    fontWeight="700"
+                    fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                >
+                    {text}
+                </text>
+            </g>
+        );
     };
     
     const currentTheme = themeColors[themeColor];
@@ -660,7 +749,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                         </Box>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 500 }}>
-                                                ⚠️ Missing Data:
+                                                ⚠️ Offline / Missing Data:
                                             </Typography>
                                             <Typography variant="body2" sx={{ fontWeight: 700, color: missingDataHours > 0 ? '#f44336' : 'inherit' }}>
                                                 {formatHours(missingDataHours)}
@@ -717,11 +806,11 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                 <PowerOff sx={{ fontSize: 28, color: 'white' }} />
                             </Box>
                             <Box sx={{ flex: 1 }}>
-                                <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff5722', mb: 0.5 }}>
-                                    ⚠️ Missing API Data Detected
+                                <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff5722', mb: 0.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                                    ⚠️ System Off / Missing Data Detected
                                 </Typography>
-                                <Typography variant="body2" sx={{ color: '#666' }}>
-                                    System was completely off for <strong>{formatHours(missingDataHours)}</strong> - No API responses received during this time. 
+                                <Typography variant="body2" sx={{ color: darkMode ? '#bbb' : '#666', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                                    System was offline / off for <strong>{formatHours(missingDataHours)}</strong> across <strong>{missingDataGaps.length} gap{missingDataGaps.length !== 1 ? 's' : ''}</strong>. 
                                     Expected: {expectedDataPoints} data points (every 5 min) | Received: {data.length} data points | Missing: {Math.max(0, expectedDataPoints - data.length)} data points
                                 </Typography>
                             </Box>
@@ -998,7 +1087,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                     }}
                                 />
                                 <Typography variant="body2" sx={{ fontWeight: 500, color: '#f44336' }}>
-                                    ⚠️ Missing Data ({missingDataGaps.length} gaps)
+                                    ⚠️ Missing Data ({missingDataGaps.length} gaps - {formatHours(missingDataHours)})
                                 </Typography>
                             </Box>
                         )}
@@ -1040,23 +1129,26 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                     />
                                 ))}
 
-                                {/* Missing data gaps visualization */}
+                                {/* Missing data gaps visualization with mobile-friendly badges */}
                                 {missingDataGaps.map((gap, index) => (
                                     <ReferenceArea
                                         key={`gap-${index}`}
                                         x1={gap.start}
                                         x2={gap.end}
-                                        fill="rgba(255, 0, 0, 0.15)"
+                                        fill="rgba(255, 0, 0, 0.12)"
                                         stroke="rgba(255, 0, 0, 0.5)"
-                                        strokeWidth={2}
-                                        strokeDasharray="5 5"
-                                        label={{
-                                            value: `⚠️ ${formatMissingDuration(gap.duration)} missing`,
-                                            position: 'insideTop',
-                                            fill: '#f44336',
-                                            fontSize: 11,
-                                            fontWeight: 600
-                                        }}
+                                        strokeWidth={1.5}
+                                        strokeDasharray="4 4"
+                                        ifOverflow="visible"
+                                        label={(labelProps) => (
+                                            <CustomGapLabel
+                                                {...labelProps}
+                                                gap={gap}
+                                                index={index}
+                                                isMobile={isMobile}
+                                                darkMode={darkMode}
+                                            />
+                                        )}
                                     />
                                 ))}
 
@@ -1100,6 +1192,49 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
+                    )}
+
+                    {/* Mobile-Friendly Gap Summary Breakdown */}
+                    {!isLoading && missingDataGaps.length > 0 && (
+                        <Box sx={{ 
+                            mt: 2, 
+                            p: { xs: 1.5, sm: 2 }, 
+                            backgroundColor: darkMode ? 'rgba(244, 67, 54, 0.08)' : 'rgba(244, 67, 54, 0.04)', 
+                            borderRadius: 3, 
+                            border: '1px solid rgba(244, 67, 54, 0.2)' 
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <PowerOff sx={{ fontSize: 18, color: '#f44336' }} />
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: darkMode ? '#ff8a80' : '#d32f2f', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                                        System Off Intervals ({missingDataGaps.length} {missingDataGaps.length === 1 ? 'gap' : 'gaps'}) — Total: {formatHours(missingDataHours)}
+                                    </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ color: darkMode ? '#bbb' : '#666', fontWeight: 500 }}>
+                                    {isMobile ? 'Downtime details' : 'Exact downtime periods recorded'}
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {missingDataGaps.map((gap, idx) => (
+                                    <Chip
+                                        key={idx}
+                                        size="small"
+                                        icon={<PowerOff sx={{ fontSize: '13px !important', color: '#f44336' }} />}
+                                        label={`${gap.start.slice(0, 5)} - ${gap.end.slice(0, 5)} (${formatMissingDuration(gap.duration)})`}
+                                        sx={{
+                                            backgroundColor: darkMode ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+                                            borderColor: 'rgba(244, 67, 54, 0.4)',
+                                            color: darkMode ? '#ff8a80' : '#c62828',
+                                            fontSize: { xs: '0.72rem', sm: '0.78rem' },
+                                            fontWeight: 600,
+                                            py: 0.5,
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                                        }}
+                                        variant="outlined"
+                                    />
+                                ))}
+                            </Box>
+                        </Box>
                     )}
                 </CardContent>
             </Card>
