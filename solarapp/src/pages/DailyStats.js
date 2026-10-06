@@ -9,7 +9,8 @@ import {
     CartesianGrid,
     Tooltip as RechartsTooltip,
     Legend,
-    ReferenceArea
+    ReferenceArea,
+    ReferenceDot
 } from "recharts";
 import {
     Box,
@@ -70,6 +71,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
     const [isError, setisError] = useState("");
     const [gridFeedEnabled, setGridFeedEnabled] = useState(null);
     const [isLoadingGridStatus, setIsLoadingGridStatus] = useState(true);
+    const [maxPvPoint, setMaxPvPoint] = useState(null);
 
     const getTodayLocal = () => {
         const today = new Date();
@@ -137,11 +139,15 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
 
                 let batteryHours = 0;
                 let cutOffHours = 0;
-
+                let maxPv = null;
 
                 graphData.forEach((point) => {
                     pvSum += point.pv_power * intervalHours;
                     loadSum += point.load_power * intervalHours;
+
+                    if (point.pv_power > 0 && (!maxPv || point.pv_power > maxPv.pv_power)) {
+                        maxPv = point;
+                    }
 
                     if (point.mode === "Battery Mode") {
                         batteryHours += intervalHours;
@@ -203,6 +209,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                 setcutOffHours(cutOffHours.toFixed(2));
                 setMissingDataHours(missingHours.toFixed(2));
                 setExpectedDataPoints(expectedDataPoints);
+                setMaxPvPoint(maxPv);
 
             } else {
                 setisError(res.data.error.err)
@@ -212,6 +219,7 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                 setLoadTotal(0);
                 setModeZones([]);
                 setMissingDataHours(0);
+                setMaxPvPoint(null);
             }
         } catch (err) {
             toast.error("Error fetching API")
@@ -462,6 +470,51 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
             </g>
         );
     };
+
+    const CustomMaxPointLabel = (props) => {
+        const { viewBox, maxPoint, isMobile, darkMode } = props;
+        if (!viewBox || !maxPoint) return null;
+        const x = viewBox.x ?? 0;
+        const y = viewBox.y ?? 0;
+        if (isNaN(x) || isNaN(y)) return null;
+
+        const text = isMobile 
+            ? `⚡ Peak: ${maxPoint.pv_power}W` 
+            : `⚡ Peak: ${maxPoint.pv_power}W (${maxPoint.time.slice(0, 5)})`;
+            
+        const charWidth = isMobile ? 6.2 : 7.2;
+        const pillWidth = Math.max(text.length * charWidth + 14, isMobile ? 48 : 66);
+        const pillHeight = isMobile ? 18 : 20;
+        const pillY = y - pillHeight - 8;
+
+        return (
+            <g style={{ pointerEvents: 'none' }}>
+                <rect
+                    x={x - pillWidth / 2}
+                    y={pillY}
+                    width={pillWidth}
+                    height={pillHeight}
+                    rx={4}
+                    ry={4}
+                    fill={darkMode ? "rgba(25, 45, 25, 0.95)" : "rgba(240, 255, 240, 0.95)"}
+                    stroke="#4caf50"
+                    strokeWidth={1.2}
+                    filter="drop-shadow(0px 1px 3px rgba(0,0,0,0.15))"
+                />
+                <text
+                    x={x}
+                    y={pillY + (pillHeight / 2) + (isMobile ? 3 : 4)}
+                    textAnchor="middle"
+                    fill={darkMode ? "#a5d6a7" : "#2e7d32"}
+                    fontSize={isMobile ? 9.5 : 11}
+                    fontWeight="700"
+                    fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                >
+                    {text}
+                </text>
+            </g>
+        );
+    };
     
     const currentTheme = themeColors[themeColor];
 
@@ -519,6 +572,33 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                 }}>
                                 Total PV Production
                             </Typography>
+                            {!isLoading && maxPvPoint && maxPvPoint.pv_power > 0 && (
+                                <Box sx={{ 
+                                    mt: 2, 
+                                    pt: 1.5, 
+                                    borderTop: '2px solid rgba(255, 255, 255, 0.2)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 0.5
+                                }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" sx={{ opacity: 0.85, fontWeight: 500, fontSize: { xs: '0.75rem', sm: '0.8rem' } }}>
+                                            ⚡ Peak Power:
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                                            {maxPvPoint.pv_power} W
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" sx={{ opacity: 0.85, fontWeight: 500, fontSize: { xs: '0.75rem', sm: '0.8rem' } }}>
+                                            ⏰ Peak Time:
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                                            {maxPvPoint.time.slice(0, 5)}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            )}
                         </CardContent>
                     </Card>
                     </Fade>
@@ -1023,6 +1103,20 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                 }}
                             />
                         )}
+                        {!isLoading && maxPvPoint && maxPvPoint.pv_power > 0 && (
+                            <Chip 
+                                icon={<SolarIcon sx={{ fontSize: '15px !important', color: '#ffb300 !important' }} />}
+                                label={`Peak: ${maxPvPoint.pv_power} W (${maxPvPoint.time.slice(0, 5)})`}
+                                size="small"
+                                sx={{ 
+                                    background: darkMode ? 'rgba(255, 179, 0, 0.15)' : 'rgba(255, 179, 0, 0.12)',
+                                    color: darkMode ? '#ffca28' : '#e65100',
+                                    border: '1px solid rgba(255, 179, 0, 0.4)',
+                                    fontWeight: 700,
+                                    borderRadius: 2
+                                }}
+                            />
+                        )}
                     </Box>
 
                     <Box sx={{ 
@@ -1190,6 +1284,27 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                                     fill="url(#loadColor)"
                                     name="Load Power (W)"
                                 />
+
+                                {/* Max Point of Production */}
+                                {maxPvPoint && maxPvPoint.pv_power > 0 && (
+                                    <ReferenceDot
+                                        x={maxPvPoint.time}
+                                        y={maxPvPoint.pv_power}
+                                        r={isMobile ? 5 : 6}
+                                        fill="#ffb300"
+                                        stroke="#ffffff"
+                                        strokeWidth={2.5}
+                                        ifOverflow="visible"
+                                        label={(labelProps) => (
+                                            <CustomMaxPointLabel
+                                                {...labelProps}
+                                                maxPoint={maxPvPoint}
+                                                isMobile={isMobile}
+                                                darkMode={darkMode}
+                                            />
+                                        )}
+                                    />
+                                )}
                             </AreaChart>
                         </ResponsiveContainer>
                     )}
