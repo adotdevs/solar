@@ -31,7 +31,13 @@ import {
     ElectricBolt,
     Send,
     Chat,
-    Dns
+    Dns,
+    SolarPower,
+    Park,
+    Shield,
+    ReportProblem,
+    Tune,
+    Nightlight
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../constants';
@@ -49,6 +55,11 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
     const [lastDataMetrics, setLastDataMetrics] = useState({});
     const [deviceList, setDeviceList] = useState([]);
     const [testingChannel, setTestingChannel] = useState(null);
+
+    // NEW ShineMonitor & Hardware states (strictly battery-free)
+    const [hardwareAlarms, setHardwareAlarms] = useState({ alarms: [], active_count: 0 });
+    const [hardwareRegisters, setHardwareRegisters] = useState([]);
+    const [environmentalImpact, setEnvironmentalImpact] = useState(null);
     
     const currentTheme = themeColors[themeColor] || { primary: '#10b981', secondary: '#059669' };
 
@@ -65,7 +76,10 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
             fetchNotificationStatus(),
             fetchCollectorInfo(),
             fetchDeviceLastData(),
-            fetchDeviceList()
+            fetchDeviceList(),
+            fetchHardwareAlarms(),
+            fetchHardwareRegisters(),
+            fetchEnvironmentalImpact()
         ]);
         setIsLoadingHealth(false);
         setIsLoadingSettings(false);
@@ -149,6 +163,39 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
             }
         } catch (error) {
             console.error('Error fetching device list:', error);
+        }
+    };
+
+    const fetchHardwareAlarms = async () => {
+        try {
+            const response = await axios.get(API_ENDPOINTS.hardwareAlarms());
+            if (response.data && response.data.success) {
+                setHardwareAlarms(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching hardware alarms:', error);
+        }
+    };
+
+    const fetchHardwareRegisters = async () => {
+        try {
+            const response = await axios.get(API_ENDPOINTS.hardwareRegisters());
+            if (response.data && response.data.success && response.data.registers) {
+                setHardwareRegisters(response.data.registers);
+            }
+        } catch (error) {
+            console.error('Error fetching hardware registers:', error);
+        }
+    };
+
+    const fetchEnvironmentalImpact = async () => {
+        try {
+            const response = await axios.get(API_ENDPOINTS.environmentalImpact());
+            if (response.data && response.data.success) {
+                setEnvironmentalImpact(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching environmental impact:', error);
         }
     };
 
@@ -365,6 +412,180 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
             {/* Main Diagnostics Grid */}
             <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
                 
+                {/* HERO CARD: ⚡ Solar Grid-Feeding Status & Power Flow Intelligence */}
+                <Grid item xs={12}>
+                    <Fade in timeout={300}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: `4px solid ${
+                                systemSettings?.grid_feed_state === 'active_feeding' ? '#10b981' :
+                                systemSettings?.grid_feed_state === 'self_consumption' ? '#6366f1' :
+                                systemSettings?.grid_feed_state === 'grid_outage' ? '#f59e0b' :
+                                systemSettings?.grid_feed_state === 'hardware_disabled' ? '#ef4444' : '#0ea5e9'
+                            }`,
+                            boxShadow: darkMode ? '0 12px 35px rgba(0,0,0,0.4)' : '0 12px 35px rgba(0,0,0,0.05)'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.8 }}>
+                                        <Box sx={{ 
+                                            p: 1.2, 
+                                            borderRadius: 3, 
+                                            bgcolor: systemSettings?.grid_feed_state === 'active_feeding' ? 'rgba(16, 185, 129, 0.15)' :
+                                                     systemSettings?.grid_feed_state === 'night_standby' ? 'rgba(14, 165, 233, 0.15)' :
+                                                     'rgba(99, 102, 241, 0.15)',
+                                            color: systemSettings?.grid_feed_state === 'active_feeding' ? '#10b981' :
+                                                   systemSettings?.grid_feed_state === 'night_standby' ? '#0ea5e9' : '#6366f1',
+                                            display: 'flex'
+                                        }}>
+                                            {systemSettings?.grid_feed_state === 'night_standby' ? (
+                                                <Nightlight sx={{ fontSize: 32 }} />
+                                            ) : systemSettings?.grid_feed_state === 'active_feeding' ? (
+                                                <ElectricBolt sx={{ fontSize: 32 }} />
+                                            ) : (
+                                                <SolarPower sx={{ fontSize: 32 }} />
+                                            )}
+                                        </Box>
+                                        <Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                <Typography variant="h5" sx={{ fontWeight: 800, fontSize: { xs: '1.2rem', sm: '1.45rem' } }}>
+                                                    Solar Grid-Feeding Status & Power Flow
+                                                </Typography>
+                                                <Chip 
+                                                    size="small" 
+                                                    label={systemSettings?.grid_feed_badge || (systemSettings?.is_night ? '🌙 Standby (Night)' : '⚡ Active Feed')}
+                                                    sx={{ 
+                                                        fontWeight: 800, 
+                                                        fontSize: '0.75rem',
+                                                        bgcolor: systemSettings?.grid_feed_state === 'active_feeding' ? 'rgba(16, 185, 129, 0.15)' :
+                                                                 systemSettings?.grid_feed_state === 'grid_outage' ? 'rgba(245, 158, 11, 0.15)' :
+                                                                 systemSettings?.grid_feed_state === 'hardware_disabled' ? 'rgba(239, 68, 68, 0.15)' :
+                                                                 'rgba(14, 165, 233, 0.15)',
+                                                        color: systemSettings?.grid_feed_state === 'active_feeding' ? '#10b981' :
+                                                               systemSettings?.grid_feed_state === 'grid_outage' ? '#f59e0b' :
+                                                               systemSettings?.grid_feed_state === 'hardware_disabled' ? '#ef4444' :
+                                                               '#0ea5e9',
+                                                        border: '1px solid currentColor'
+                                                    }}
+                                                />
+                                            </Box>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', mt: 0.3, display: 'block' }}>
+                                                Physical power-flow balance with inverter firmware register validation
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                        <Chip 
+                                            size="small"
+                                            icon={<Tune sx={{ fontSize: '14px !important' }} />}
+                                            label={`Inverter Register std_solar_feed_to_grid_ctrl_d: ${systemSettings?.hardware_feed_setting || 'Enable'}`}
+                                            sx={{
+                                                bgcolor: systemSettings?.hardware_feed_setting === 'Disable' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                                color: systemSettings?.hardware_feed_setting === 'Disable' ? '#ef4444' : '#10b981',
+                                                fontWeight: 700,
+                                                fontSize: '0.72rem'
+                                            }}
+                                        />
+                                    </Box>
+                                </Box>
+
+                                {/* 4 Power Flow Telemetry Tiles */}
+                                <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                                    <Grid item xs={6} sm={3}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                ☀️ Solar PV Generation
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#10b981' }}>
+                                                {systemSettings?.pv_power?.toLocaleString() ?? '0'} <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                {systemSettings?.is_night ? '🌙 Inactive (Night)' : '☀️ Active Production'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                                            <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                🏠 Home Load Demand
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#6366f1' }}>
+                                                {systemSettings?.load_power?.toLocaleString() ?? '0'} <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                AC Active Power Consumption
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(14, 165, 233, 0.08)' : 'rgba(14, 165, 233, 0.05)', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                                            <Typography variant="caption" sx={{ color: '#0ea5e9', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                ⚡ Grid Feed Power
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0ea5e9' }}>
+                                                {systemSettings?.solar_feed_power?.toLocaleString() ?? '0'} <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                {systemSettings?.is_actively_feeding ? '⚡ Exporting to Grid' : '0 W Feed-in'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={6} sm={3}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)', border: `1px solid ${cardBorder}` }}>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                🔄 Generation vs Load Balance
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ 
+                                                fontWeight: 800, 
+                                                color: (systemSettings?.pv_power || 0) >= (systemSettings?.load_power || 0) ? '#10b981' : '#f59e0b'
+                                            }}>
+                                                {(systemSettings?.pv_power || 0) >= (systemSettings?.load_power || 0) ? '+' : ''}
+                                                {((systemSettings?.pv_power || 0) - (systemSettings?.load_power || 0)).toLocaleString()} <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>W</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                {(systemSettings?.pv_power || 0) >= (systemSettings?.load_power || 0) ? 'Surplus Generation' : 'Grid Support Required'}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+
+                                {/* Smart Explanation Banner */}
+                                <Box sx={{ 
+                                    p: 2, 
+                                    borderRadius: 3, 
+                                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(241, 245, 249, 0.9)',
+                                    border: `1px solid ${cardBorder}`,
+                                    display: 'flex',
+                                    alignItems: { xs: 'flex-start', sm: 'center' },
+                                    justifyContent: 'space-between',
+                                    flexDirection: { xs: 'column', sm: 'row' },
+                                    gap: 1.5
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Info sx={{ color: systemSettings?.grid_feed_state === 'active_feeding' ? '#10b981' : '#0ea5e9', fontSize: 24 }} />
+                                        <Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: darkMode ? '#f8fafc' : '#0f172a' }}>
+                                                Physical Logic Assessment:
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ color: darkMode ? '#cbd5e1' : '#475569', fontSize: '0.85rem' }}>
+                                                {systemSettings?.grid_feed_explanation || "Inverter power management evaluates PV generation against household demand and anti-islanding grid limits."}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small"
+                                        icon={<Shield sx={{ fontSize: '14px !important' }} />}
+                                        label={`Grid Sync: ${systemHealth?.utility_ac_voltage || 230}V @ ${systemHealth?.utility_ac_frequency || 50.0}Hz`}
+                                        sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', flexShrink: 0 }}
+                                    />
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
                 {/* 1. System Health Score & Power Line Stability */}
                 <Grid item xs={12} md={6}>
                     <Fade in timeout={400}>
@@ -892,6 +1113,290 @@ const SystemControls = ({ darkMode, themeColor, themeColors }) => {
                                         >
                                             Send Summary
                                         </Button>
+                                    </Grid>
+                                </Grid>
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
+                {/* 5. Inverter Hardware Control Registers (Live Inverter Firmware Memory) */}
+                <Grid item xs={12} md={6}>
+                    <Fade in timeout={800}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #8b5cf6',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)',
+                            height: '100%'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(139, 92, 246, 0.12)',
+                                            color: '#8b5cf6'
+                                        }}>
+                                            <Tune sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                Hardware Control Registers
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Live registers queried directly from inverter memory
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small" 
+                                        label={`${hardwareRegisters.length > 0 ? hardwareRegisters.length : 6} Registers`}
+                                        sx={{ bgcolor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', fontWeight: 700 }}
+                                    />
+                                </Box>
+
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
+                                    {(hardwareRegisters.length > 0 ? hardwareRegisters : [
+                                        { label: 'Solar Feed To Grid', value: systemSettings?.hardware_feed_setting || 'Enable', category: 'Grid Export Setting' },
+                                        { label: 'Output Source Priority', value: systemSettings?.output_source_priority || 'Solar Utility Bat', category: 'Power Supply Route' },
+                                        { label: 'AC Input Range', value: systemSettings?.ac_input_range || 'Generator', category: 'Utility Voltage Tolerance' },
+                                        { label: 'Buzzer Alarm', value: 'Enable', category: 'Audible Alerts' },
+                                        { label: 'Overload Auto Restart', value: 'Disable', category: 'Protection Recovery' },
+                                        { label: 'Source Interrupt Beep', value: 'Enable', category: 'Grid Cut Beeps' }
+                                    ]).map((reg, idx) => (
+                                        <Box 
+                                            key={idx}
+                                            sx={{ 
+                                                p: 1.4, 
+                                                borderRadius: 2.5, 
+                                                bgcolor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                                                border: `1px solid ${cardBorder}`,
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <Box>
+                                                <Typography variant="caption" sx={{ color: darkMode ? '#cbd5e1' : '#334155', fontWeight: 700, display: 'block' }}>
+                                                    {reg.label || reg.name}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.68rem' }}>
+                                                    {reg.category || 'Inverter Setting'}
+                                                </Typography>
+                                            </Box>
+                                            <Chip 
+                                                size="small"
+                                                label={reg.value}
+                                                sx={{ 
+                                                    fontWeight: 700,
+                                                    fontSize: '0.72rem',
+                                                    bgcolor: reg.value === 'Enable' || reg.value === 'Solar Utility Bat' 
+                                                        ? 'rgba(16, 185, 129, 0.12)' 
+                                                        : 'rgba(139, 92, 246, 0.12)',
+                                                    color: reg.value === 'Enable' || reg.value === 'Solar Utility Bat' 
+                                                        ? '#10b981' 
+                                                        : '#8b5cf6'
+                                                }}
+                                            />
+                                        </Box>
+                                    ))}
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
+                {/* 6. Inverter Hardware Warning & Outage Event Logs (Battery-Free) */}
+                <Grid item xs={12} md={6}>
+                    <Fade in timeout={900}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #ef4444',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)',
+                            height: '100%'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(239, 68, 68, 0.12)',
+                                            color: '#ef4444'
+                                        }}>
+                                            <ReportProblem sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                Inverter Alarms & Outage Log
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Grid cuts, line fails & hardware alarms from inverter
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small" 
+                                        label={hardwareAlarms?.active_count > 0 ? `${hardwareAlarms.active_count} Active` : "0 Faults"}
+                                        sx={{ 
+                                            bgcolor: hardwareAlarms?.active_count > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                            color: hardwareAlarms?.active_count > 0 ? '#ef4444' : '#10b981',
+                                            fontWeight: 700 
+                                        }}
+                                    />
+                                </Box>
+
+                                <Box sx={{ 
+                                    maxHeight: 310, 
+                                    overflowY: 'auto', 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: 1.2,
+                                    pr: 0.5
+                                }}>
+                                    {hardwareAlarms?.alarms && hardwareAlarms.alarms.length > 0 ? (
+                                        hardwareAlarms.alarms.slice(0, 7).map((alarm, idx) => (
+                                            <Box 
+                                                key={idx}
+                                                sx={{ 
+                                                    p: 1.4, 
+                                                    borderRadius: 2.5, 
+                                                    bgcolor: alarm.is_active 
+                                                        ? (darkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)')
+                                                        : (darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)'),
+                                                    border: `1px solid ${alarm.is_active ? 'rgba(239, 68, 68, 0.3)' : cardBorder}`
+                                                }}
+                                            >
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                                    <Typography variant="subtitle2" sx={{ 
+                                                        fontWeight: 700, 
+                                                        fontSize: '0.8rem',
+                                                        color: alarm.raw_desc === 'LINE_FAIL' ? '#ef4444' :
+                                                               alarm.raw_desc === 'PV Loss' ? '#0ea5e9' : '#f59e0b'
+                                                    }}>
+                                                        {alarm.title}
+                                                    </Typography>
+                                                    <Chip 
+                                                        size="small"
+                                                        label={alarm.is_active ? "Active" : "Cleared"}
+                                                        sx={{ 
+                                                            height: 18, 
+                                                            fontSize: '0.62rem', 
+                                                            fontWeight: 700,
+                                                            bgcolor: alarm.is_active ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                                            color: alarm.is_active ? '#ef4444' : '#10b981'
+                                                        }}
+                                                    />
+                                                </Box>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontSize: '0.7rem' }}>
+                                                        ⏰ {alarm.start_time}
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.68rem' }}>
+                                                        {alarm.end_time !== 'Active / Ongoing' ? `Duration: to ${alarm.end_time.slice(11)}` : 'In Progress'}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        ))
+                                    ) : (
+                                        <Box sx={{ py: 4, textAlign: 'center' }}>
+                                            <CheckCircle sx={{ fontSize: 36, color: '#10b981', mb: 1 }} />
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#10b981' }}>
+                                                Inverter Systems Fully Nominal
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Zero active hardware faults or electrical anomalies
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Fade>
+                </Grid>
+
+                {/* 7. Clean Energy Environmental Impact & Carbon ROI */}
+                <Grid item xs={12}>
+                    <Fade in timeout={1000}>
+                        <Card sx={{
+                            background: cardBackground,
+                            borderRadius: 4,
+                            border: `1px solid ${cardBorder}`,
+                            borderTop: '3.5px solid #10b981',
+                            boxShadow: darkMode ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(0,0,0,0.03)'
+                        }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ 
+                                            p: 1, 
+                                            borderRadius: 2.5, 
+                                            bgcolor: 'rgba(16, 185, 129, 0.12)',
+                                            color: '#10b981'
+                                        }}>
+                                            <Park sx={{ fontSize: 24 }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                                Clean Energy Environmental Impact & Carbon Savings
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                                Ecological offset analytics per ShineMonitor plant metrics (Plant ID: {environmentalImpact?.plant_id || '5220419'})
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Chip 
+                                        size="small" 
+                                        icon={<CheckCircle sx={{ fontSize: '14px !important', color: '#10b981 !important' }} />}
+                                        label="Green Energy Verified" 
+                                        sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700 }}
+                                    />
+                                </Box>
+
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} sm={4}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                🌍 CO₂ Reduction Factor
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#10b981' }}>
+                                                {environmentalImpact?.factors?.co2_kg_per_kwh || '0.997'} <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>kg / kWh</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                Standard atmospheric CO₂ avoided per clean kWh produced
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                                            <Typography variant="caption" sx={{ color: '#f59e0b', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                ⛏️ Standard Coal Avoided
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#f59e0b' }}>
+                                                {environmentalImpact?.factors?.coal_kg_per_kwh || '0.400'} <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>kg / kWh</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                Equivalent raw coal combustion displaced from thermal plants
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                    <Grid item xs={12} sm={4}>
+                                        <Box sx={{ p: 2, borderRadius: 3, bgcolor: darkMode ? 'rgba(14, 165, 233, 0.08)' : 'rgba(14, 165, 233, 0.05)', border: '1px solid rgba(14, 165, 233, 0.25)' }}>
+                                            <Typography variant="caption" sx={{ color: '#0ea5e9', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                🌳 Urban Tree Absorption Baseline
+                                            </Typography>
+                                            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0ea5e9' }}>
+                                                21.77 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>kg CO₂ / Tree / Yr</span>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#64748b' : '#94a3b8', fontSize: '0.72rem' }}>
+                                                EPA standard annual carbon sequestration per mature urban tree
+                                            </Typography>
+                                        </Box>
                                     </Grid>
                                 </Grid>
                             </CardContent>

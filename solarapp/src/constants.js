@@ -43,6 +43,12 @@ export const API_ENDPOINTS = {
     testDiscord: () => `${API_BASE_URL}/notifications/test-discord`,
     testEmail: () => `${API_BASE_URL}/notifications/test-email`,
     
+    // NEW: Hardware Alarms, Registers & Environmental Impact
+    hardwareAlarms: () => `${API_BASE_URL}/system/hardware-alarms`,
+    hardwareRegisters: () => `${API_BASE_URL}/system/hardware-registers`,
+    environmentalImpact: () => `${API_BASE_URL}/plant/environmental-impact`,
+    plantDetails: () => `${API_BASE_URL}/plant-info`,
+
     // NEW: Alerts Configuration
     alertsConfig: () => `${API_BASE_URL}/alerts/config`
 };
@@ -62,10 +68,12 @@ export const CONFIG = {
     EXPECTED_DATA_POINTS_PER_DAY: 288
 };
 
-export default {
+const constants = {
     API_BASE_URL,
     API_ENDPOINTS,
     CONFIG
 };
+
+export default constants;
 
 

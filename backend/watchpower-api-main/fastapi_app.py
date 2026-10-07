@@ -331,6 +331,181 @@ def get_device_raw_data():
         return {"success": False, "error": str(e)}
 
 
+@app.get("/system/hardware-alarms")
+@app.get("/hardware-alarms")
+def get_hardware_alarms(page: int = 0, pagesize: int = 50):
+    """
+    Get real inverter hardware warning & alarm history.
+    Filters out battery alarms (as system is battery-less).
+    """
+    try:
+        cache_key = f"hardware_alarms_{page}_{pagesize}"
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        res = api_manager.handle_api_call(
+            api_manager.wp.get_device_warnings,
+            serial_number=SERIAL_NUMBER,
+            wifi_pn=WIFI_PN,
+            dev_code=DEV_CODE,
+            dev_addr=DEV_ADDR,
+            page=page,
+            pagesize=pagesize
+        )
+        
+        all_warnings = res.get("dat", {}).get("warning", [])
+        filtered = []
+        active_count = 0
+        for w in all_warnings:
+            desc = str(w.get("desc", ""))
+            # Strictly filter out battery alarms
+            if "bat" in desc.lower():
+                continue
+            
+            is_active = not bool(w.get("handle", False)) or not w.get("cts")
+            if is_active:
+                active_count += 1
+            
+            friendly_name = desc
+            severity = "warning"
+            if desc == "PV Loss":
+                friendly_name = "Solar PV Loss (Night / Sun Down)"
+                severity = "info"
+            elif desc == "LINE_FAIL":
+                friendly_name = "Utility Grid Outage / Power Cut"
+                severity = "error"
+            elif desc == "Eeprom Fault":
+                friendly_name = "Inverter EEPROM Diagnostic"
+                severity = "warning"
+
+            filtered.append({
+                "raw_desc": desc,
+                "title": friendly_name,
+                "severity": severity,
+                "start_time": w.get("gts"),
+                "end_time": w.get("cts") or "Active / Ongoing",
+                "is_active": is_active,
+                "level": w.get("level", 0),
+                "handled": bool(w.get("handle", False))
+            })
+
+        out = {
+            "success": True,
+            "total_count": len(filtered),
+            "active_count": active_count,
+            "alarms": filtered,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        cache.set(cache_key, out, ttl=30)
+        return out
+    except Exception as e:
+        logger.error(f"Error fetching hardware alarms: {e}")
+        return {"success": False, "error": str(e), "alarms": [], "active_count": 0}
+
+
+@app.get("/system/hardware-registers")
+@app.get("/hardware-registers")
+def get_hardware_registers():
+    """
+    Get actual non-battery configuration registers directly from inverter hardware.
+    """
+    try:
+        cache_key = "hardware_registers_cache"
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        target_registers = [
+            ("std_solar_feed_to_grid_ctrl_d", "Solar Feed To Grid", "Grid Export Setting"),
+            ("bse_output_source_priority", "Output Source Priority", "Power Supply Route"),
+            ("bse_ac_input_range", "AC Input Range", "Utility Voltage Tolerance"),
+            ("std_buzzer_ctrl_a", "Buzzer Alarm", "Audible Alerts"),
+            ("std_overload_restart_ctrl_u", "Overload Auto Restart", "Protection Recovery"),
+            ("std_primary_source_alarm_ctrl_y", "Source Interrupt Beep", "Grid Cut Beeps")
+        ]
+
+        registers = []
+        for reg_id, label, category in target_registers:
+            try:
+                v = api_manager.handle_api_call(
+                    api_manager.wp.get_device_ctrl_value,
+                    serial_number=SERIAL_NUMBER,
+                    wifi_pn=WIFI_PN,
+                    dev_code=DEV_CODE,
+                    dev_addr=DEV_ADDR,
+                    ctrl_id=reg_id
+                )
+                val_data = v.get("dat", {})
+                registers.append({
+                    "id": reg_id,
+                    "label": label,
+                    "category": category,
+                    "value": str(val_data.get("val", "Unknown")),
+                    "name": str(val_data.get("name", label))
+                })
+            except Exception as e:
+                logger.warning(f"Failed to read register {reg_id}: {e}")
+                registers.append({
+                    "id": reg_id,
+                    "label": label,
+                    "category": category,
+                    "value": "Unknown",
+                    "name": label
+                })
+
+        out = {
+            "success": True,
+            "registers": registers,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        cache.set(cache_key, out, ttl=60)
+        return out
+    except Exception as e:
+        logger.error(f"Error fetching hardware registers: {e}")
+        return {"success": False, "error": str(e), "registers": []}
+
+
+@app.get("/plant/environmental-impact")
+@app.get("/environmental-impact")
+def get_environmental_impact():
+    """
+    Calculate environmental offset using ShineMonitor plant parameters.
+    """
+    try:
+        cache_key = "plant_environmental_impact"
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        plant_info = {}
+        try:
+            p = api_manager.handle_api_call(api_manager.wp.get_plant_info, plant_id=5220419)
+            if p and p.get("err") == 0:
+                plant_info = p.get("dat", {})
+        except Exception as e:
+            logger.warning(f"Could not fetch plant info: {e}")
+
+        factors = {
+            "co2_kg_per_kwh": 0.997,
+            "coal_kg_per_kwh": 0.400,
+            "tree_factor_kg": 21.77
+        }
+
+        out = {
+            "success": True,
+            "plant_name": plant_info.get("name", "MYBMSPLANT"),
+            "plant_id": plant_info.get("pid", 5220419),
+            "timezone_offset_seconds": plant_info.get("address", {}).get("timezone", 18000),
+            "factors": factors,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        cache.set(cache_key, out, ttl=300)
+        return out
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @app.get("/today-total")
 def today_total():
     try:
@@ -899,6 +1074,8 @@ async def get_current_system_settings(force_refresh: bool = False):
             raise HTTPException(status_code=500, detail="Incomplete data from system")
         
         # Extract actual system settings from fields
+        grid_voltage = float(fields[1]) if len(fields) > 1 and fields[1] else 230.0
+        grid_freq = float(fields[2]) if len(fields) > 2 and fields[2] else 50.0
         ac_input_range = str(fields[37]) if len(fields) > 37 else "Unknown"
         output_source_priority = str(fields[38]) if len(fields) > 38 else "Unknown"
         charger_source_priority = str(fields[39]) if len(fields) > 39 else "Unknown"
@@ -908,53 +1085,89 @@ async def get_current_system_settings(force_refresh: bool = False):
         load_power = float(fields[21]) if len(fields) > 21 and fields[21] else 0.0  # AC Output Active Power
         system_status = str(fields[49]) if len(fields) > 49 else "Unknown"
         
-        # SMART grid feeding detection
-        # Simple approach: Feed power + saved status
-        # 
-        # Key rules:
-        # 1. Feed >0W → ENABLED (100% certain)
-        # 2. Feed =0W → Use saved status (can't determine from hardware alone)
-        # 3. Only detect DISABLED if saved status says so
-        
-        # Get Pakistan Standard Time (PKT = UTC+5)
+        # 1. Fetch actual inverter hardware setting (std_solar_feed_to_grid_ctrl_d)
+        hardware_feed_setting = "Enable"
+        try:
+            feed_reg = api_manager.handle_api_call(
+                api_manager.wp.get_device_ctrl_value,
+                serial_number=SERIAL_NUMBER,
+                wifi_pn=WIFI_PN,
+                dev_code=DEV_CODE,
+                dev_addr=DEV_ADDR,
+                ctrl_id="std_solar_feed_to_grid_ctrl_d"
+            )
+            if feed_reg and feed_reg.get("err") == 0 and "dat" in feed_reg:
+                val = str(feed_reg["dat"].get("val", "Enable"))
+                if val in ["Enable", "Disable"]:
+                    hardware_feed_setting = val
+                    settings_storage.set("grid_feeding_enabled", (val == "Enable"))
+        except Exception as e:
+            logger.warning(f"Could not read inverter feed register directly: {e}")
+            saved_setting = settings_storage.get("grid_feeding_enabled", True)
+            hardware_feed_setting = "Enable" if saved_setting else "Disable"
+
+        # 2. Strong Physical Logic & Environmental State Evaluation
+        surplus_power = max(0.0, round(pv_power - load_power, 1))
+        is_hardware_enabled = (hardware_feed_setting.lower() == "enable")
+        is_grid_connected = (grid_voltage >= 90.0) and (system_status != "Battery Mode")
+        is_actively_feeding = solar_feed_power >= 10.0
+        is_night = pv_power < 15.0
+
         pkt_timezone = timezone(timedelta(hours=5))
         pkt_now = datetime.datetime.now(pkt_timezone)
-        current_hour = pkt_now.hour
-        current_time_str = pkt_now.strftime("%I:%M %p")  # Format: "10:30 AM"
-        
-        is_daytime = 7 <= current_hour <= 17  # 7 AM - 5 PM PKT
-        is_feeding = solar_feed_power >= 10  # Any feed power (even 10W means enabled)
-        
-        # Get saved status from last known state (from WatchPower app changes)
-        saved_grid_status = settings_storage.get("grid_feeding_enabled", True)
-        
-        # Simple logic: Feed power tells the truth
-        if is_feeding:
-            # If feeding ANY amount → ENABLED
-            grid_feed_enabled = True
-            feed_status = "enabled_feeding"
-            feed_display = f"Enabled & Feeding ({int(solar_feed_power)}W) - {current_time_str}"
-            
-        elif saved_grid_status == False:
-            # Saved status says disabled + no feed → DISABLED
-            grid_feed_enabled = False
-            feed_status = "disabled"
-            if is_daytime:
-                feed_display = f"DISABLED (PV: {int(pv_power)}W, Load: {int(load_power)}W, Feed: {int(solar_feed_power)}W) - {current_time_str}"
-            else:
-                feed_display = f"DISABLED (Night) - {current_time_str}"
-            
+        current_time_str = pkt_now.strftime("%I:%M %p")
+
+        if not is_grid_connected:
+            feed_state = "grid_outage"
+            feed_title = "Grid Outage (Grid Disconnected)"
+            feed_badge = "⚠️ Grid Outage (Anti-Islanding Active)"
+            feed_display = f"Anti-Islanding Lock Active — Cannot feed during outage ({current_time_str})"
+            feed_explanation = "The utility grid is down or disconnected. Inverter anti-islanding safety disconnect is open to protect line workers; solar feed is halted."
+            feed_color = "warning"
+            is_feeding_now = False
+        elif is_night:
+            feed_state = "night_standby"
+            feed_title = "Night Standby (0W Solar Production)"
+            feed_badge = "🌙 Standby (Night, 0W Generation)"
+            feed_display = f"Standby Mode — PV Inactive (0W), Powering Home ({int(load_power)}W) via Grid - {current_time_str}"
+            feed_explanation = f"Solar array is inactive at night (PV: 0W). System operates in utility pass-through mode powering home load ({int(load_power)}W). Solar grid feeding will resume automatically at dawn."
+            feed_color = "info"
+            is_feeding_now = False
+        elif is_actively_feeding:
+            feed_state = "active_feeding"
+            feed_title = f"Actively Exporting {int(solar_feed_power)}W to Grid"
+            feed_badge = f"⚡ Actively Feeding ({int(solar_feed_power)}W)"
+            feed_display = f"Actively Feeding {int(solar_feed_power)}W excess solar into National Grid - {current_time_str}"
+            feed_explanation = f"Solar generation ({int(pv_power)}W) exceeds home load ({int(load_power)}W). Net surplus of {int(solar_feed_power)}W is actively feeding into the national grid."
+            feed_color = "success"
+            is_feeding_now = True
+        elif not is_hardware_enabled:
+            feed_state = "hardware_disabled"
+            feed_title = "Grid Feeding Disabled in Inverter Settings"
+            feed_badge = "🚫 Grid Feeding Disabled"
+            feed_display = f"Disabled in Inverter Firmware Settings - {current_time_str}"
+            feed_explanation = f"Inverter register 'std_solar_feed_to_grid_ctrl_d' is set to Disable. Surplus solar power of {int(surplus_power)}W is being curtailed instead of exported."
+            feed_color = "error"
+            is_feeding_now = False
+        elif surplus_power <= 50.0:
+            feed_state = "self_consumption"
+            feed_title = "100% Solar Self-Consumption (Zero Surplus)"
+            feed_badge = "🏠 100% Self-Consumption"
+            feed_display = f"Self-Consumption — All PV ({int(pv_power)}W) powering Home Load ({int(load_power)}W) - {current_time_str}"
+            feed_explanation = f"Solar array is generating {int(pv_power)}W, but household appliances are consuming {int(load_power)}W. There is zero excess surplus available to export right now. Feeding is ready and on standby."
+            feed_color = "primary"
+            is_feeding_now = False
         else:
-            # No feed but saved status says enabled → ENABLED (no excess to feed)
-            grid_feed_enabled = True
-            feed_status = "enabled_not_feeding"
-            if is_daytime:
-                feed_display = f"Enabled (No excess, PV: {int(pv_power)}W, Load: {int(load_power)}W) - {current_time_str}"
-            else:
-                feed_display = f"Enabled (Night, No Production) - {current_time_str}"
-        
-        # Update monitoring service with actual hardware status
-        monitoring_service.set_grid_feeding_status(grid_feed_enabled)
+            feed_state = "export_standby"
+            feed_title = "Surplus Available / Inverter Regulating"
+            feed_badge = "⏳ Export Standby"
+            feed_display = f"Export Standby ({int(surplus_power)}W surplus available, current feed {int(solar_feed_power)}W) - {current_time_str}"
+            feed_explanation = f"PV generation ({int(pv_power)}W) exceeds load ({int(load_power)}W), but current feed is {int(solar_feed_power)}W. Inverter power management is stabilizing."
+            feed_color = "warning"
+            is_feeding_now = False
+
+        # Only update monitoring service with actual hardware enabled setting
+        monitoring_service.set_grid_feeding_status(is_hardware_enabled)
         
         result = {
             "success": True,
@@ -965,13 +1178,25 @@ async def get_current_system_settings(force_refresh: bool = False):
                 "charger_source_priority": charger_source_priority,
                 "load_status": load_status,
                 "system_status": system_status,
-                "grid_feed_enabled": grid_feed_enabled,
-                "grid_feed_status": feed_status,
+                "grid_voltage": grid_voltage,
+                "grid_freq": grid_freq,
+                "grid_feed_enabled": is_hardware_enabled,
+                "hardware_feed_setting": hardware_feed_setting,
+                "grid_feed_state": feed_state,
+                "grid_feed_title": feed_title,
+                "grid_feed_badge": feed_badge,
                 "grid_feed_display": feed_display,
+                "grid_feed_explanation": feed_explanation,
+                "grid_feed_color": feed_color,
+                "is_actively_feeding": is_actively_feeding,
                 "solar_feed_power": solar_feed_power,
-                "pv_power": pv_power
+                "pv_power": pv_power,
+                "load_power": load_power,
+                "surplus_power": surplus_power,
+                "is_night": is_night,
+                "is_grid_connected": is_grid_connected
             },
-            "note": "These are READ-ONLY values from your inverter. Use WatchPower app to change settings."
+            "note": "Real-time evaluated hardware and telemetry values from your inverter."
         }
         
         # Cache the result

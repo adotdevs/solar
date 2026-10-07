@@ -329,3 +329,123 @@ class WatchPowerAPI:
                 return response_data
             raise RuntimeError(response_data)
         raise RuntimeError(response.status_code)
+
+    def get_device_ctrl_value(
+        self,
+        serial_number: str,
+        wifi_pn: str,
+        dev_code: int,
+        dev_addr: int,
+        ctrl_id: str,
+    ) -> dict[str, Any]:
+        """Query inverter hardware control register value (e.g. std_solar_feed_to_grid_ctrl_d)"""
+        token, secret = self._ensure_logged_in()
+        base_action = (
+            f"&action=queryDeviceCtrlValue&pn={wifi_pn}&devcode={dev_code}&sn={serial_number}&devaddr={dev_addr}&id={ctrl_id}"
+            + self._SUFFIX_CONTEXT
+        )
+        salt = self._generate_salt()
+        sign = self._hash(salt, secret, token, base_action)
+        auth = f"?sign={sign}&salt={salt}&token={self.token}"
+        url = self._BASE_URL + auth + base_action
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            response_data: dict[str, Any] = response.json()
+            error_code: int = response_data["err"]
+            if error_code == 0:
+                return response_data
+            raise RuntimeError(response_data)
+        raise RuntimeError(response.status_code)
+
+    def get_device_ctrl_fields(
+        self,
+        serial_number: str,
+        wifi_pn: str,
+        dev_code: int,
+        dev_addr: int,
+    ) -> dict[str, Any]:
+        """Query all supported hardware control fields for this inverter model"""
+        token, secret = self._ensure_logged_in()
+        base_action = (
+            f"&action=queryDeviceCtrlField&pn={wifi_pn}&devcode={dev_code}&sn={serial_number}&devaddr={dev_addr}"
+            + self._SUFFIX_CONTEXT
+        )
+        salt = self._generate_salt()
+        sign = self._hash(salt, secret, token, base_action)
+        auth = f"?sign={sign}&salt={salt}&token={self.token}"
+        url = self._BASE_URL + auth + base_action
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            response_data: dict[str, Any] = response.json()
+            error_code: int = response_data["err"]
+            if error_code == 0:
+                return response_data
+            raise RuntimeError(response_data)
+        raise RuntimeError(response.status_code)
+
+    def get_device_warnings(
+        self,
+        serial_number: str,
+        wifi_pn: str,
+        dev_code: int,
+        dev_addr: int,
+        page: int = 0,
+        pagesize: int = 50,
+    ) -> dict[str, Any]:
+        """Query inverter hardware warning and alarm logs (line fails, PV loss, fault codes)"""
+        token, secret = self._ensure_logged_in()
+        base_action = (
+            f"&action=queryDeviceWarning&pn={wifi_pn}&devcode={dev_code}&sn={serial_number}&devaddr={dev_addr}&page={page}&pagesize={pagesize}"
+            + self._SUFFIX_CONTEXT
+        )
+        salt = self._generate_salt()
+        sign = self._hash(salt, secret, token, base_action)
+        auth = f"?sign={sign}&salt={salt}&token={self.token}"
+        url = self._BASE_URL + auth + base_action
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            response_data: dict[str, Any] = response.json()
+            error_code: int = response_data["err"]
+            if error_code == 0:
+                return response_data
+            raise RuntimeError(response_data)
+        raise RuntimeError(response.status_code)
+
+    def get_plant_info(self, plant_id: int = 5220419) -> dict[str, Any]:
+        """Query plant metadata, location, timezone, and environmental calculation parameters"""
+        token, secret = self._ensure_logged_in()
+        base_action = f"&action=queryPlantInfo&plantid={plant_id}" + self._SUFFIX_CONTEXT
+        salt = self._generate_salt()
+        sign = self._hash(salt, secret, token, base_action)
+        auth = f"?sign={sign}&salt={salt}&token={self.token}"
+        url = self._BASE_URL + auth + base_action
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            response_data: dict[str, Any] = response.json()
+            error_code: int = response_data["err"]
+            if error_code == 0:
+                return response_data
+            raise RuntimeError(response_data)
+        raise RuntimeError(response.status_code)
+
+    def get_plant_profit(self) -> dict[str, Any]:
+        """Query plant environmental offset (CO2, coal saved) and revenue parameters"""
+        token, secret = self._ensure_logged_in()
+        base_action = "&action=queryPlantsProfit" + self._SUFFIX_CONTEXT
+        salt = self._generate_salt()
+        sign = self._hash(salt, secret, token, base_action)
+        auth = f"?sign={sign}&salt={salt}&token={self.token}"
+        url = self._BASE_URL + auth + base_action
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            response_data: dict[str, Any] = response.json()
+            error_code: int = response_data["err"]
+            if error_code == 0:
+                return response_data
+            raise RuntimeError(response_data)
+        raise RuntimeError(response.status_code)

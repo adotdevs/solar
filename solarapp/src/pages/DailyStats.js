@@ -45,7 +45,6 @@ import {
     Today as TodayIcon,
     Close,
     TouchApp,
-    Speed,
     ElectricBolt
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
@@ -1354,160 +1353,184 @@ const DailyStats = ({ darkMode, themeColor, themeColors }) => {
                             boxShadow: scrubbedPoint ? '0 4px 20px rgba(16, 185, 129, 0.12)' : 'none'
                         }}
                     >
-                        {scrubbedPoint ? (
-                            <Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{ 
-                                            width: 8, 
-                                            height: 8, 
-                                            borderRadius: '50%', 
-                                            bgcolor: '#10b981',
-                                            boxShadow: '0 0 10px #10b981',
-                                            animation: 'pulseGlow 1.5s infinite ease-in-out'
-                                        }} />
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: 0.5, fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
-                                            INSPECTING: <span style={{ color: '#10b981', fontWeight: 800 }}>{scrubbedPoint.time}</span>
+                        {(() => {
+                            const activePoint = scrubbedPoint || (data.length > 0 ? data[data.length - 1] : null);
+                            if (!activePoint) {
+                                return (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1 }}>
+                                        <Typography variant="body2" sx={{ color: darkMode ? '#94a3b8' : '#64748b' }}>
+                                            Waiting for telemetry data...
                                         </Typography>
                                     </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Chip 
-                                            size="small" 
-                                            label={
-                                                scrubbedPoint.mode === "Line Mode" ? "⚡ Connected (Grid)" :
-                                                scrubbedPoint.mode === "Battery Mode" ? "⚡ Off-Grid Outage" :
-                                                "⏸️ System Off"
-                                            }
-                                            sx={{ 
-                                                fontWeight: 700,
-                                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                                bgcolor: scrubbedPoint.mode === "Line Mode" ? 'rgba(16, 185, 129, 0.15)' :
-                                                         scrubbedPoint.mode === "Battery Mode" ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                                color: scrubbedPoint.mode === "Line Mode" ? '#10b981' :
-                                                       scrubbedPoint.mode === "Battery Mode" ? '#f59e0b' : '#ef4444',
-                                                border: `1px solid ${scrubbedPoint.mode === "Line Mode" ? 'rgba(16, 185, 129, 0.4)' : scrubbedPoint.mode === "Battery Mode" ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
-                                            }}
-                                        />
-                                        <IconButton 
-                                            size="small" 
-                                            onClick={() => setScrubbedPoint(null)}
-                                            sx={{ 
-                                                p: 0.5, 
-                                                bgcolor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                                                '&:hover': { bgcolor: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }
-                                            }}
-                                            title="Clear inspection point"
-                                        >
-                                            <Close sx={{ fontSize: 16 }} />
-                                        </IconButton>
+                                );
+                            }
+
+                            const isInspecting = Boolean(scrubbedPoint);
+                            const modeColor = activePoint.mode === "Line Mode" ? "#10b981" :
+                                              activePoint.mode === "Battery Mode" ? "#f59e0b" : "#ef4444";
+
+                            return (
+                                <Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ 
+                                                width: 9, 
+                                                height: 9, 
+                                                borderRadius: '50%', 
+                                                bgcolor: isInspecting ? '#3b82f6' : '#10b981',
+                                                boxShadow: `0 0 10px ${isInspecting ? '#3b82f6' : '#10b981'}`,
+                                                animation: 'pulseGlow 1.5s infinite ease-in-out'
+                                            }} />
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: 0.5, fontSize: { xs: '0.8rem', sm: '0.9rem' } }}>
+                                                {isInspecting ? 'INSPECTING:' : '🟢 LIVE TELEMETRY:'}{" "}
+                                                <span style={{ color: isInspecting ? '#3b82f6' : '#10b981', fontWeight: 800 }}>
+                                                    {activePoint.time}
+                                                </span>
+                                            </Typography>
+                                            {!isInspecting && (
+                                                <Chip 
+                                                    size="small" 
+                                                    label="Latest Reading" 
+                                                    sx={{ 
+                                                        height: 20, 
+                                                        fontSize: '0.68rem', 
+                                                        fontWeight: 700, 
+                                                        bgcolor: darkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                                                        color: '#10b981'
+                                                    }} 
+                                                />
+                                            )}
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Chip 
+                                                size="small" 
+                                                label={
+                                                    activePoint.mode === "Line Mode" ? "⚡ Connected (Grid)" :
+                                                    activePoint.mode === "Battery Mode" ? "⚡ Off-Grid Outage" :
+                                                    "⏸️ System Off"
+                                                }
+                                                sx={{ 
+                                                    fontWeight: 700,
+                                                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                                    bgcolor: `${modeColor}20`,
+                                                    color: modeColor,
+                                                    border: `1px solid ${modeColor}50`
+                                                }}
+                                            />
+                                            {isInspecting ? (
+                                                <Button 
+                                                    size="small"
+                                                    variant="outlined" 
+                                                    onClick={() => setScrubbedPoint(null)}
+                                                    startIcon={<Close sx={{ fontSize: 14 }} />}
+                                                    sx={{ 
+                                                        py: 0.2, 
+                                                        px: 1, 
+                                                        fontSize: '0.72rem', 
+                                                        textTransform: 'none', 
+                                                        borderRadius: 2,
+                                                        borderColor: darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+                                                        color: darkMode ? '#cbd5e1' : '#475569'
+                                                    }}
+                                                >
+                                                    Reset to Live
+                                                </Button>
+                                            ) : (
+                                                maxPvPoint && maxPvPoint.pv_power > 0 && (
+                                                    <Chip 
+                                                        size="small"
+                                                        icon={<SolarIcon sx={{ fontSize: '13px !important', color: '#f59e0b !important' }} />}
+                                                        label={`Peak: ${maxPvPoint.pv_power} W`}
+                                                        sx={{ 
+                                                            bgcolor: darkMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                                                            color: darkMode ? '#fbbf24' : '#d97706',
+                                                            fontWeight: 700,
+                                                            fontSize: '0.72rem',
+                                                            height: 22
+                                                        }}
+                                                    />
+                                                )
+                                            )}
+                                        </Box>
+                                    </Box>
+                                    
+                                    <Grid container spacing={1.5}>
+                                        <Grid item xs={6} sm={4}>
+                                            <Box sx={{ 
+                                                p: { xs: 1.2, sm: 1.5 }, 
+                                                borderRadius: 2.5, 
+                                                bgcolor: darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                                                border: '1px solid rgba(16, 185, 129, 0.25)'
+                                            }}>
+                                                <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                    ☀️ Solar PV Power
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981', fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                                                    {activePoint.pv_power?.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
+                                                </Typography>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={6} sm={4}>
+                                            <Box sx={{ 
+                                                p: { xs: 1.2, sm: 1.5 }, 
+                                                borderRadius: 2.5, 
+                                                bgcolor: darkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.08)',
+                                                border: '1px solid rgba(99, 102, 241, 0.25)'
+                                            }}>
+                                                <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
+                                                    ⚡ Home Load Power
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#6366f1', fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
+                                                    {activePoint.load_power?.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
+                                                </Typography>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={12} sm={4}>
+                                            <Box sx={{ 
+                                                p: { xs: 1.2, sm: 1.5 }, 
+                                                borderRadius: 2.5, 
+                                                bgcolor: activePoint.pv_power >= activePoint.load_power 
+                                                    ? (darkMode ? 'rgba(14, 165, 233, 0.1)' : 'rgba(14, 165, 233, 0.08)')
+                                                    : (darkMode ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.08)'),
+                                                border: `1px solid ${activePoint.pv_power >= activePoint.load_power ? 'rgba(14, 165, 233, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`
+                                            }}>
+                                                <Typography variant="caption" sx={{ 
+                                                    color: activePoint.pv_power >= activePoint.load_power ? '#0ea5e9' : '#f59e0b', 
+                                                    fontWeight: 700, 
+                                                    display: 'block', 
+                                                    mb: 0.2,
+                                                    fontSize: { xs: '0.68rem', sm: '0.75rem' }
+                                                }}>
+                                                    {activePoint.pv_power >= activePoint.load_power ? '🔄 Net Fed to Grid' : '🔌 Net Drawn from Grid'}
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ 
+                                                    fontWeight: 800, 
+                                                    color: activePoint.pv_power >= activePoint.load_power ? '#0ea5e9' : '#f59e0b',
+                                                    fontSize: { xs: '1.1rem', sm: '1.3rem' } 
+                                                }}>
+                                                    {activePoint.pv_power >= activePoint.load_power ? '+' : '-'}
+                                                    {Math.abs(activePoint.pv_power - activePoint.load_power).toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
+                                                </Typography>
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
+
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1.2, px: 0.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                            <TouchApp sx={{ fontSize: 15, color: darkMode ? '#94a3b8' : '#64748b' }} />
+                                            <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
+                                                {isMobile ? 'Touch or drag across graph to inspect any time point' : 'Hover or click along graph to inspect past time points'}
+                                            </Typography>
+                                        </Box>
+                                        {isLiveMode && (
+                                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, fontSize: '0.7rem' }}>
+                                                Auto-refreshing every 5m
+                                            </Typography>
+                                        )}
                                     </Box>
                                 </Box>
-                                
-                                <Grid container spacing={1.5}>
-                                    <Grid item xs={6} sm={4}>
-                                        <Box sx={{ 
-                                            p: { xs: 1, sm: 1.5 }, 
-                                            borderRadius: 2.5, 
-                                            bgcolor: darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.08)',
-                                            border: '1px solid rgba(16, 185, 129, 0.25)'
-                                        }}>
-                                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
-                                                ☀️ Solar PV Power
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                                                {scrubbedPoint.pv_power?.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid item xs={6} sm={4}>
-                                        <Box sx={{ 
-                                            p: { xs: 1, sm: 1.5 }, 
-                                            borderRadius: 2.5, 
-                                            bgcolor: darkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.08)',
-                                            border: '1px solid rgba(99, 102, 241, 0.25)'
-                                        }}>
-                                            <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 700, display: 'block', mb: 0.2, fontSize: { xs: '0.68rem', sm: '0.75rem' } }}>
-                                                ⚡ Home Load Power
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 800, color: '#6366f1', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                                                {scrubbedPoint.load_power?.toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid item xs={12} sm={4}>
-                                        <Box sx={{ 
-                                            p: { xs: 1, sm: 1.5 }, 
-                                            borderRadius: 2.5, 
-                                            bgcolor: scrubbedPoint.pv_power >= scrubbedPoint.load_power 
-                                                ? (darkMode ? 'rgba(14, 165, 233, 0.1)' : 'rgba(14, 165, 233, 0.08)')
-                                                : (darkMode ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.08)'),
-                                            border: `1px solid ${scrubbedPoint.pv_power >= scrubbedPoint.load_power ? 'rgba(14, 165, 233, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`
-                                        }}>
-                                            <Typography variant="caption" sx={{ 
-                                                color: scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '#0ea5e9' : '#f59e0b', 
-                                                fontWeight: 700, 
-                                                display: 'block', 
-                                                mb: 0.2,
-                                                fontSize: { xs: '0.68rem', sm: '0.75rem' }
-                                            }}>
-                                                {scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '🔄 Net Fed to Grid' : '🔌 Net Drawn from Grid'}
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ 
-                                                fontWeight: 800, 
-                                                color: scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '#0ea5e9' : '#f59e0b',
-                                                fontSize: { xs: '1.05rem', sm: '1.25rem' } 
-                                            }}>
-                                                {scrubbedPoint.pv_power >= scrubbedPoint.load_power ? '+' : '-'}
-                                                {Math.abs(scrubbedPoint.pv_power - scrubbedPoint.load_power).toLocaleString()} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>W</span>
-                                            </Typography>
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                                    <Typography variant="body2" sx={{ fontWeight: 700, color: darkMode ? '#cbd5e1' : '#475569', display: 'flex', alignItems: 'center', gap: 0.8, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-                                        <Speed sx={{ fontSize: 18, color: '#10b981' }} />
-                                        Live Telemetry:
-                                    </Typography>
-                                    {maxPvPoint && maxPvPoint.pv_power > 0 && (
-                                        <Chip 
-                                            size="small"
-                                            icon={<SolarIcon sx={{ fontSize: '14px !important', color: '#f59e0b !important' }} />}
-                                            label={`Peak: ${maxPvPoint.pv_power} W (${maxPvPoint.time.slice(0, 5)})`}
-                                            sx={{ 
-                                                bgcolor: darkMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
-                                                color: darkMode ? '#fbbf24' : '#d97706',
-                                                fontWeight: 700,
-                                                border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                fontSize: '0.74rem'
-                                            }}
-                                        />
-                                    )}
-                                    {data.length > 0 && (
-                                        <Chip 
-                                            size="small"
-                                            icon={<ElectricBolt sx={{ fontSize: '14px !important', color: '#10b981 !important' }} />}
-                                            label={`Latest: ${data[data.length - 1].pv_power} W (${data[data.length - 1].time.slice(0, 5)})`}
-                                            sx={{ 
-                                                bgcolor: darkMode ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
-                                                color: '#10b981',
-                                                fontWeight: 700,
-                                                border: '1px solid rgba(16, 185, 129, 0.25)',
-                                                fontSize: '0.74rem'
-                                            }}
-                                        />
-                                    )}
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                    <TouchApp sx={{ fontSize: 16, color: darkMode ? '#94a3b8' : '#64748b' }} />
-                                    <Typography variant="caption" sx={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500, fontStyle: 'italic' }}>
-                                        {isMobile ? 'Drag finger across graph to inspect any time' : 'Hover over graph to inspect live values'}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        )}
+                            );
+                        })()}
                     </Box>
 
                     {isLoading ? (
